@@ -4,6 +4,7 @@ namespace App\Services\Notification;
 
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use RuntimeException;
 use Throwable;
@@ -16,7 +17,7 @@ class GmailNotificationService
 
     private const SMTP_PORT = 587;
 
-    public function sendTestMessage(string $recipient): void
+    public function send(string $recipient, string $subject, string $body): void
     {
         $settings = $this->settings();
 
@@ -42,7 +43,6 @@ class GmailNotificationService
                 'password' => $password,
                 'timeout' => 15,
                 'local_domain' => parse_url((string) config('app.url'), PHP_URL_HOST),
-                'encryption' => 'tls',
             ],
         ]);
 
@@ -51,30 +51,24 @@ class GmailNotificationService
         try
         {
             Mail::mailer(self::MAILER)->raw(
-                'This is a test email from NADI Central. Your Gmail SMTP configuration is working.',
-                function ($message) use ($recipient, $settings)
+                $body,
+                function ($message) use ($recipient, $subject, $settings)
                 {
                     $message
                         ->to($recipient)
                         ->from($settings->smtp_username, $settings->from_name)
-                        ->subject('[NADI] Gmail SMTP configuration test');
+                        ->subject($subject);
                 }
             );
-
-            DB::table('nadi_notification_mail_settings')
-                ->where('id', $settings->id)
-                ->update([
-                    'last_tested_at' => now(),
-                    'updated_at' => now(),
-                ]);
         }
         catch (Throwable $exception)
         {
-            report($exception);
+            Log::warning('NADI Gmail notification delivery failed.', [
+                'exception_type' => get_class($exception),
+            ]);
 
             throw new RuntimeException(
-                'Unable to send the test email. Check the Gmail address, App Password, and Google account SMTP access.',
-                previous: $exception
+                'Unable to send email. Check the Gmail address, App Password, and Google account SMTP access.'
             );
         }
         finally
@@ -85,6 +79,22 @@ class GmailNotificationService
                 'mail.mailers.' . self::MAILER => null,
             ]);
         }
+    }
+
+    public function sendTestMessage(string $recipient): void
+    {
+        $this->send(
+            $recipient,
+            '[NADI] Gmail SMTP configuration test',
+            'This is a test email from NADI Central. Your Gmail SMTP configuration is working.'
+        );
+
+        DB::table('nadi_notification_mail_settings')
+            ->where('id', 1)
+            ->update([
+                'last_tested_at' => now(),
+                'updated_at' => now(),
+            ]);
     }
 
     public function settings(): ?object
@@ -102,6 +112,9 @@ class GmailNotificationService
     ): void
     {
         $existing = $this->settings();
+        $normalizedPassword = $password !== null
+            ? preg_replace('/\s+/', '', trim($password))
+            : null;
 
         $data = [
             'smtp_username' => strtolower(trim($username)),
@@ -110,9 +123,9 @@ class GmailNotificationService
             'updated_at' => now(),
         ];
 
-        if ($password !== null && $password !== '')
+        if ($normalizedPassword !== null && $normalizedPassword !== '')
         {
-            $data['smtp_password'] = Crypt::encryptString($password);
+            $data['smtp_password'] = Crypt::encryptString($normalizedPassword);
         }
 
         if ($existing)
