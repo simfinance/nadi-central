@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Nadi;
 use App\Http\Controllers\Controller;
 use App\Services\Telemetry\TelemetryAuthorizationService;
 use App\Services\Telemetry\TelemetryIngestionService;
+use App\Services\Telemetry\TelemetryStreamRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -72,25 +73,7 @@ class AgentTelemetryController extends Controller
                 'records.*.stream' => [
                     'required',
                     'string',
-                    Rule::in([
-                        'server_metrics',
-                        'nginx_metrics',
-                        'nginx_vhost_metrics',
-                        'nginx_access_logs',
-                        'nginx_error_logs',
-                        'application_metrics',
-                        'application_logs',
-                        'database_metrics',
-                        'database_connections',
-                        'queue_metrics',
-                        'queue_jobs',
-                        'scheduler_metrics',
-                        'scheduler_events',
-                        'application_events',
-                        'nginx_http_requests',
-                        'application_http_requests',
-                        'application_http_errors',
-                    ]),
+                    Rule::in(TelemetryStreamRegistry::recognizedNames()),
                 ],
 
                 'records.*.sequence' => [
