@@ -141,6 +141,27 @@ class AgentTelemetryEndpointTest extends TestCase
             'replayed' => false,
         ];
 
+        $authorization = Mockery::mock(
+            TelemetryAuthorizationService::class
+        );
+
+        $authorization->shouldReceive('authorizeAndSanitize')
+            ->once()
+            ->withArgs(function (
+                array $receivedPayload,
+                NadiAgent $receivedAgent
+            ) use ($payload)
+            {
+                return $receivedPayload === $payload
+                    && $receivedAgent->id === $this->agent->id;
+            })
+            ->andReturn($payload);
+
+        $this->app->instance(
+            TelemetryAuthorizationService::class,
+            $authorization
+        );
+
         $service = Mockery::mock(
             TelemetryIngestionService::class
         );
