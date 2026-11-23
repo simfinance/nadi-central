@@ -16,7 +16,6 @@ class TelemetryAuthorizationService
         'server_metrics' => 'server_metrics',
         'nginx_metrics' => 'server_metrics',
         'nginx_vhost_metrics' => 'server_metrics',
-        'nginx_access_logs' => 'system_logs',
         'nginx_error_logs' => 'system_logs',
         'application_metrics' => 'application_metrics',
         'application_logs' => 'application_logs',
