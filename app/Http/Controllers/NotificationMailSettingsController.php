@@ -53,13 +53,15 @@ class NotificationMailSettingsController extends Controller
 
         $existing = $this->mailService->settings();
         $password = $validated['smtp_password'] ?? null;
+        $accountChanged = $existing
+            && strtolower((string) $existing->smtp_username) !== strtolower($validated['smtp_username']);
 
-        if (!$existing && (!$password || trim($password) === ''))
+        if ((!$existing || $accountChanged) && (!$password || trim($password) === ''))
         {
             return back()
                 ->withInput($request->except('smtp_password'))
                 ->withErrors([
-                    'smtp_password' => 'Gmail App Password is required for the first configuration.',
+                    'smtp_password' => 'A Gmail App Password is required when configuring or changing the Gmail account.',
                 ]);
         }
 
@@ -91,8 +93,6 @@ class NotificationMailSettingsController extends Controller
         }
         catch (Throwable $exception)
         {
-            report($exception);
-
             return back()
                 ->withInput($request->only('test_recipient'))
                 ->withErrors([
