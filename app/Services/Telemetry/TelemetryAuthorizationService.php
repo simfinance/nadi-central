@@ -145,8 +145,8 @@ class TelemetryAuthorizationService
                 if (!$this->isApplicationEligible($application, $agent))
                 {
                     throw new HttpException(
-                        403,
-                        'Application monitoring is not active.'
+                        410,
+                        'Application monitoring scope is no longer active.'
                     );
                 }
 
@@ -157,8 +157,8 @@ class TelemetryAuthorizationService
                 ))
                 {
                     throw new HttpException(
-                        403,
-                        'No acknowledged activation grant authorizes this telemetry capability.'
+                        410,
+                        'No valid acknowledged activation grant authorizes this telemetry scope.'
                     );
                 }
             }
@@ -208,7 +208,7 @@ class TelemetryAuthorizationService
         }
 
         throw new HttpException(
-            403,
+            410,
             'Server telemetry requires an active application grant explicitly carrying the required server capability.'
         );
     }
