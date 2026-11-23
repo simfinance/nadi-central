@@ -2,10 +2,12 @@
 
 namespace App\Services\Notification;
 
+use App\Jobs\DeliverNadiNotification;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -68,7 +70,8 @@ class GmailNotificationService
             ]);
 
             throw new RuntimeException(
-                'Unable to send email. Check the Gmail address, App Password, and Google account SMTP access.'
+                'Unable to send email. Check the Gmail address, App Password, and Google account SMTP access.',
+                previous: $exception
             );
         }
         finally
@@ -79,6 +82,59 @@ class GmailNotificationService
                 'mail.mailers.' . self::MAILER => null,
             ]);
         }
+    }
+
+    public function queue(
+        string $recipient,
+        string $subject,
+        string $body
+    ): string
+    {
+        $settings = $this->settings();
+
+        if (!$settings || !$settings->enabled || !$settings->smtp_username || !$settings->smtp_password)
+        {
+            throw new RuntimeException('Configure and enable Gmail notifications before queuing an email.');
+        }
+
+        $deliveryId = (string) Str::uuid();
+
+        DB::transaction(function () use ($deliveryId, $recipient, $subject, $body)
+        {
+            DB::table('nadi_notification_deliveries')->insert([
+                'id' => $deliveryId,
+                'recipient' => strtolower(trim($recipient)),
+                'subject' => trim($subject),
+                'body_encrypted' => Crypt::encryptString($body),
+                'status' => 'queued',
+                'attempts' => 0,
+                'queued_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DeliverNadiNotification::dispatch($deliveryId)->afterCommit();
+        });
+
+        return $deliveryId;
+    }
+
+    public function sendQueuedDelivery(string $deliveryId): void
+    {
+        $delivery = DB::table('nadi_notification_deliveries')
+            ->where('id', $deliveryId)
+            ->first();
+
+        if (!$delivery)
+        {
+            throw new RuntimeException('Notification delivery record was not found.');
+        }
+
+        $this->send(
+            $delivery->recipient,
+            $delivery->subject,
+            Crypt::decryptString($delivery->body_encrypted)
+        );
     }
 
     public function sendTestMessage(string $recipient): void
