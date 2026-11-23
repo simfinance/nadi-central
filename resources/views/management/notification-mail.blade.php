@@ -146,7 +146,7 @@
 
     <div class="mail-security-note">
         <strong>Security note</strong>
-        <p>Use a Google App Password, not your normal Google account password. Two-Step Verification must be enabled for the Google account. The password is encrypted before it is stored. Only authorized Central administrators should access this page.</p>
+        <p>Use a Google App Password, not your normal Google account password. Two-Step Verification must be enabled for the Google account. The password is encrypted before it is stored. Only users who are permitted to access the Central Console should access this page.</p>
     </div>
 </div>
 
