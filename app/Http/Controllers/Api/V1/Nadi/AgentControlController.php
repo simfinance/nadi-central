@@ -1,13 +1,13 @@
 <?php
 
-namespace App\\Http\\Controllers\\Api\\V1\\Nadi;
+namespace App\Http\Controllers\Api\V1\Nadi;
 
-use App\\Http\\Controllers\\Controller;
-use App\\Models\\NadiActivationGrant;
-use App\\Models\\NadiAgentCommand;
-use App\\Services\\Activation\\GrantSigner;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
+use App\Http\Controllers\Controller;
+use App\Models\NadiActivationGrant;
+use App\Models\NadiAgentCommand;
+use App\Services\Activation\GrantSigner;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class AgentControlController extends Controller
