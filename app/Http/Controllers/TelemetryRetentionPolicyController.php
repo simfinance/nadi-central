@@ -57,7 +57,7 @@ class TelemetryRetentionPolicyController extends Controller
         );
 
         return view(
-            'pages.management.telemetry-retention',
+            'management.telemetry-retention',
             compact('policies')
         );
     }
