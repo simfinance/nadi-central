@@ -12,34 +12,6 @@ use Throwable;
 
 class TelemetryAuthorizationService
 {
-    private const STREAM_CAPABILITIES = [
-        'server_metrics' => 'server_metrics',
-        'nginx_metrics' => 'server_metrics',
-        'nginx_vhost_metrics' => 'server_metrics',
-        'nginx_error_logs' => 'system_logs',
-        'application_metrics' => 'application_metrics',
-        'application_logs' => 'application_logs',
-        'database_metrics' => 'database_monitoring',
-        'database_connections' => 'database_monitoring',
-        'queue_metrics' => 'queue_monitoring',
-        'queue_jobs' => 'queue_monitoring',
-        'scheduler_metrics' => 'scheduler_monitoring',
-        'scheduler_events' => 'scheduler_monitoring',
-    ];
-
-    private const SERVER_STREAMS = [
-        'server_metrics',
-        'nginx_metrics',
-        'nginx_vhost_metrics',
-        'nginx_access_logs',
-        'nginx_error_logs',
-    ];
-
-    private const LOG_STREAMS = [
-        'nginx_error_logs',
-        'application_logs',
-    ];
-
     private const LOG_LEVELS = [
         'emergency',
         'alert',
@@ -89,7 +61,8 @@ class TelemetryAuthorizationService
         foreach ($payload['records'] as $index => $record)
         {
             $stream = $record['stream'] ?? null;
-            $capability = self::STREAM_CAPABILITIES[$stream] ?? null;
+            $definition = TelemetryStreamRegistry::definition($stream);
+            $capability = $definition['capability'] ?? null;
 
             if (!$capability)
             {
@@ -101,7 +74,7 @@ class TelemetryAuthorizationService
 
             $applicationId = $record['application_id'] ?? null;
 
-            if (in_array($stream, self::SERVER_STREAMS, true))
+            if (($definition['scope'] ?? null) === 'server')
             {
                 if ($applicationId !== null)
                 {
@@ -163,7 +136,7 @@ class TelemetryAuthorizationService
                 }
             }
 
-            if (in_array($stream, self::LOG_STREAMS, true))
+            if (TelemetryStreamRegistry::isLog($stream))
             {
                 if (!config('nadi.telemetry.logs_enabled', false))
                 {
