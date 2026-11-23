@@ -30,6 +30,12 @@ class TelemetryIngestionService
         'nginx_http_requests',
         'application_http_requests',
         'application_http_errors',
+        'database_metrics',
+        'database_connections',
+        'queue_metrics',
+        'queue_jobs',
+        'scheduler_metrics',
+        'scheduler_events',
     ];
 
     public function __construct(
@@ -432,7 +438,7 @@ class TelemetryIngestionService
             $application->registration_status !== 'approved'
             || !in_array(
                 $application->activation_status,
-                ['pending', 'active'],
+                ['active'],
                 true
             )
             || $application->monitoring_suspended_at !== null
@@ -475,7 +481,7 @@ class TelemetryIngestionService
     {
         if (
             $grant->grant_status !== 'active'
-            || $grant->acknowledgement_status === 'failed'
+            || $grant->acknowledgement_status !== 'success'
             || $grant->revoked_at !== null
             || !$grant->expires_at
             || !$grant->expires_at->isFuture()
