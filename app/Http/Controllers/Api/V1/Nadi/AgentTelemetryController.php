@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Nadi;
 
 use App\Http\Controllers\Controller;
+use App\Services\Telemetry\TelemetryAuthorizationService;
 use App\Services\Telemetry\TelemetryIngestionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -14,7 +15,8 @@ use Throwable;
 class AgentTelemetryController extends Controller
 {
     public function __construct(
-        protected TelemetryIngestionService $ingestion
+        protected TelemetryIngestionService $ingestion,
+        protected TelemetryAuthorizationService $authorization
     )
     {
     }
@@ -78,10 +80,12 @@ class AgentTelemetryController extends Controller
                         'nginx_error_logs',
                         'application_metrics',
                         'application_logs',
-                        'application_events',
-                        'nginx_http_requests',
-                        'application_http_requests',
-                        'application_http_errors',
+                        'database_metrics',
+                        'database_connections',
+                        'queue_metrics',
+                        'queue_jobs',
+                        'scheduler_metrics',
+                        'scheduler_events',
                     ]),
                 ],
 
@@ -130,8 +134,13 @@ class AgentTelemetryController extends Controller
 
         try
         {
-            $ack = $this->ingestion->ingest(
+            $payload = $this->authorization->authorizeAndSanitize(
                 $validator->validated(),
+                $agent
+            );
+
+            $ack = $this->ingestion->ingest(
+                $payload,
                 $agent
             );
 
