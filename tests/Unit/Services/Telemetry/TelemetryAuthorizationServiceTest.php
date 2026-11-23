@@ -40,6 +40,19 @@ class TelemetryAuthorizationServiceTest extends TestCase
         $this->assertArrayNotHasKey('nginx_access_logs', $mapping);
     }
 
+    public function test_activation_capability_allowlist_contains_log_capabilities(): void
+    {
+        $capabilities = config('nadi.activation.capabilities');
+
+        $this->assertContains('server_metrics', $capabilities);
+        $this->assertContains('application_metrics', $capabilities);
+        $this->assertContains('database_monitoring', $capabilities);
+        $this->assertContains('queue_monitoring', $capabilities);
+        $this->assertContains('scheduler_monitoring', $capabilities);
+        $this->assertContains('system_logs', $capabilities);
+        $this->assertContains('application_logs', $capabilities);
+    }
+
     public function test_nginx_error_log_schema_redacts_secrets(): void
     {
         $sanitized = $this->invokePrivate(
