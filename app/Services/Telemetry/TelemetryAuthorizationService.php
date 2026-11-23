@@ -166,6 +166,14 @@ class TelemetryAuthorizationService
 
             if (in_array($stream, self::LOG_STREAMS, true))
             {
+                if (!config('nadi.telemetry.logs_enabled', false))
+                {
+                    throw new HttpException(
+                        503,
+                        'Log telemetry ingestion is disabled pending Agent contract verification.'
+                    );
+                }
+
                 $payload['records'][$index]['data'] = $this->validateAndSanitizeLog(
                     $stream,
                     $record['data'] ?? null
@@ -452,6 +460,14 @@ class TelemetryAuthorizationService
             throw new HttpException(
                 422,
                 'Log message must be a non-empty string within the size limit.'
+            );
+        }
+
+        if (preg_match('/(?:stack trace:|traceback \(most recent call last\)|^#\\d+\\s)/im', $message))
+        {
+            throw new HttpException(
+                422,
+                'Raw stack traces are not accepted in log messages.'
             );
         }
 
