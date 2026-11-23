@@ -491,6 +491,14 @@
                         </svg>
                         <span>Central Health</span>
                     </a>
+
+                    <a href="{{ route('management.telemetry') }}" class="menu-link {{ request()->routeIs('management.telemetry', 'management.telemetry.*') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12h4l3-7 4 14 3-7h4"/>
+                            <path d="M3 3v18h18"/>
+                        </svg>
+                        <span>Telemetry</span>
+                    </a>
                 </div>
 
                 <div class="menu-section">
