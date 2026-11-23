@@ -1208,14 +1208,29 @@ class TelemetryIngestionService
             );
         }
 
-        $retentionDays = DB::table('nadi_retention_policies')
+        $retentionPolicy = DB::table('nadi_retention_policies')
             ->where('data_type', 'telemetry_batches')
-            ->value('retention_days');
+            ->first();
 
-        if (
-            !is_numeric($retentionDays)
-            || (int) $retentionDays < 1
-        )
+        if (!$retentionPolicy)
+        {
+            throw new HttpException(
+                503,
+                'Telemetry batch retention policy is unavailable or invalid.'
+            );
+        }
+
+        if (!(bool) $retentionPolicy->enabled)
+        {
+            return;
+        }
+
+        $retentionDays = filter_var(
+            $retentionPolicy->retention_days,
+            FILTER_VALIDATE_INT
+        );
+
+        if ($retentionDays === false || $retentionDays < 1)
         {
             throw new HttpException(
                 503,
@@ -1235,9 +1250,7 @@ class TelemetryIngestionService
             );
         }
 
-        $cutoff = now('UTC')->subDays(
-            (int) $retentionDays
-        );
+        $cutoff = now('UTC')->subDays($retentionDays);
 
         if ($sentAtUtc->lt($cutoff))
         {
