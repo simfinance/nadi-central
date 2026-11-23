@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\NadiAgent;
 use App\Models\NadiServer;
+use App\Services\Telemetry\TelemetryAuthorizationService;
 use App\Services\Telemetry\TelemetryIngestionService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
