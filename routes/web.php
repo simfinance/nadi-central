@@ -17,6 +17,7 @@ use App\Http\Controllers\ActivationGrantController;
 use App\Http\Controllers\AgentCredentialController;
 use App\Http\Controllers\ApplicationLifecycleController;
 use App\Http\Controllers\TelemetryRetentionPolicyController;
+use App\Http\Controllers\NotificationMailSettingsController;
 
 Route::get('/', function () {
     if (Auth::check())
@@ -83,6 +84,10 @@ Route::middleware('auth')->group(function () {
 
             Route::get('/telemetry-retention', [TelemetryRetentionPolicyController::class, 'index'])->name('telemetry-retention');
             Route::post('/telemetry-retention', [TelemetryRetentionPolicyController::class, 'update'])->name('telemetry-retention.update');
+
+            Route::get('/notification-mail', [NotificationMailSettingsController::class, 'index'])->name('notification-mail');
+            Route::put('/notification-mail', [NotificationMailSettingsController::class, 'update'])->name('notification-mail.update');
+            Route::post('/notification-mail/test', [NotificationMailSettingsController::class, 'sendTest'])->name('notification-mail.test');
 
             // Ringkasan seluruh server & aplikasi
             Route::get('/telemetry', [TelemetryController::class, 'index'])
