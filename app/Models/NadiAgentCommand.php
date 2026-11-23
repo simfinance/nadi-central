@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Models;
+namespace App\\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\\Database\\Eloquent\\Model;
+use Illuminate\\Support\\Str;
 
 class NadiAgentCommand extends Model
 {
@@ -27,6 +27,8 @@ class NadiAgentCommand extends Model
         'command_status',
         'issued_at',
         'delivered_at',
+        'acknowledged_at',
+        'delivery_attempts',
         'completed_at',
         'expires_at',
         'result_payload',
@@ -37,6 +39,8 @@ class NadiAgentCommand extends Model
         'result_payload' => 'array',
         'issued_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'acknowledged_at' => 'datetime',
+        'delivery_attempts' => 'integer',
         'completed_at' => 'datetime',
         'expires_at' => 'datetime',
         'created_at' => 'datetime',
