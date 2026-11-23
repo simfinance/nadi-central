@@ -18,26 +18,6 @@ class TelemetryIngestionService
     private const MAX_RECORDS_PER_BATCH = 500;
     private const MAX_RECORD_BYTES = 65536;
 
-    private const STREAMS = [
-        'server_metrics',
-        'nginx_metrics',
-        'nginx_vhost_metrics',
-        'nginx_access_logs',
-        'nginx_error_logs',
-        'application_metrics',
-        'application_logs',
-        'application_events',
-        'nginx_http_requests',
-        'application_http_requests',
-        'application_http_errors',
-        'database_metrics',
-        'database_connections',
-        'queue_metrics',
-        'queue_jobs',
-        'scheduler_metrics',
-        'scheduler_events',
-    ];
-
     public function __construct(
         protected GrantSigner $signer
     )
@@ -134,7 +114,7 @@ class TelemetryIngestionService
             {
                 $streamName = $record['stream'];
 
-                if (!in_array($streamName, self::STREAMS, true))
+                if (!TelemetryStreamRegistry::isRecognized($streamName))
                 {
                     throw new HttpException(
                         422,
@@ -363,12 +343,9 @@ class TelemetryIngestionService
         array &$applicationCache
     ): void
     {
-        $requiresApplication = str_starts_with(
-            $streamName,
-            'application_'
-        );
+        $scope = TelemetryStreamRegistry::scope($streamName);
 
-        if ($requiresApplication && !$applicationId)
+        if ($scope === 'application' && !$applicationId)
         {
             throw new HttpException(
                 422,
@@ -376,14 +353,11 @@ class TelemetryIngestionService
             );
         }
 
-        if (
-            $streamName === 'server_metrics'
-            && $applicationId !== null
-        )
+        if ($scope === 'server' && $applicationId !== null)
         {
             throw new HttpException(
                 422,
-                'Server metrics cannot have an application ID.'
+                'Server-scoped telemetry must not include an application ID.'
             );
         }
 
