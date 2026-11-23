@@ -1,13 +1,13 @@
 <?php
 
-use App\Http\Controllers\AgentCredentialDeliveryController;
-use App\Http\Controllers\Api\V1\Nadi\AgentControlController;
-use App\Http\Controllers\Api\V1\Nadi\AgentEnrollmentController;
-use App\Http\Controllers\Api\V1\Nadi\AgentActivationController;
-use App\Http\Controllers\Api\V1\Nadi\AgentTelemetryController;
-use App\Http\Controllers\Api\V1\Nadi\ReleaseManifestController;
+use App\\Http\\Controllers\\AgentCredentialDeliveryController;
+use App\\Http\\Controllers\\Api\\V1\\Nadi\\AgentControlController;
+use App\\Http\\Controllers\\Api\\V1\\Nadi\\AgentEnrollmentController;
+use App\\Http\\Controllers\\Api\\V1\\Nadi\\AgentActivationController;
+use App\\Http\\Controllers\\Api\\V1\\Nadi\\AgentTelemetryController;
+use App\\Http\\Controllers\\Api\\V1\\Nadi\\ReleaseManifestController;
 
-use Illuminate\Support\Facades\Route;
+use Illuminate\\Support\\Facades\\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -59,6 +59,12 @@ Route::prefix('v1/nadi')->group(function ()
                 [AgentControlController::class, 'poll']
             )
                 ->name('api.nadi.agent.control.poll');
+
+            Route::post(
+                '/commands/{commandId}/ack',
+                [AgentControlController::class, 'acknowledge']
+            )
+                ->name('api.nadi.agent.commands.ack');
 
             Route::post(
                 '/telemetry/batches',
