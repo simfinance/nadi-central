@@ -363,6 +363,7 @@ class TelemetryAuthorizationTest extends TestCase
         ]);
 
         return [
+            'agent' => $agent,
             'application' => $application,
             'registration' => $registration,
         ];
