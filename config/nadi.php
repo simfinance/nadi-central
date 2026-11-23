@@ -33,6 +33,13 @@ return [
         ],
     ],
 
+    'agent_commands' => [
+        'delivery_retry_seconds' => (int) env(
+            'NADI_AGENT_COMMAND_DELIVERY_RETRY_SECONDS',
+            60
+        ),
+    ],
+
     'telemetry' => [
         'logs_enabled' => (bool) env(
             'NADI_TELEMETRY_LOGS_ENABLED',
