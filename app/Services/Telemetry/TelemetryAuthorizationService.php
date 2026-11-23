@@ -524,8 +524,8 @@ class TelemetryAuthorizationService
     private function redactSensitiveText(string $value): string
     {
         $patterns = [
-            '/(authorization\s*[:=]\s*)([^\s,;]+)/i',
-            '/(proxy-authorization\s*[:=]\s*)([^\s,;]+)/i',
+            '/(authorization\s*[:=]\s*)(?:Bearer\s+)?([^\s,;]+)/i',
+            '/(proxy-authorization\s*[:=]\s*)(?:Bearer\s+)?([^\s,;]+)/i',
             '/(cookie\s*[:=]\s*)([^\r\n]+)/i',
             '/(set-cookie\s*[:=]\s*)([^\r\n]+)/i',
             '/((?:access|refresh|id)_token|api[_-]?key|client_secret|password|passwd|secret)\s*[:=]\s*([^\s,;]+)/i',
