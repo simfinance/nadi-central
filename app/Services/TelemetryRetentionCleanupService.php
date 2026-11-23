@@ -55,9 +55,28 @@ class TelemetryRetentionCleanupService
                 continue;
             }
 
-            $retentionDays = (int) $policy->retention_days;
+            $retentionDays = filter_var(
+                $policy->retention_days,
+                FILTER_VALIDATE_INT
+            );
 
-            $cutoff = now()->subDays($retentionDays);
+            if ($retentionDays === false || $retentionDays < 1)
+            {
+                $results[$dataType] = [
+                    'status' => 'invalid_policy',
+                    'eligible' => 0,
+                    'deleted' => 0,
+                ];
+
+                Log::warning('NADI telemetry retention skipped due to an invalid policy.', [
+                    'data_type' => $dataType,
+                    'retention_days' => $policy->retention_days,
+                ]);
+
+                continue;
+            }
+
+            $cutoff = now('UTC')->subDays($retentionDays);
 
             $table = $config['table'];
 
