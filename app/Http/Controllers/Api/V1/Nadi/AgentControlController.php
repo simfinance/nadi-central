@@ -1,14 +1,13 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Nadi;
+namespace App\\Http\\Controllers\\Api\\V1\\Nadi;
 
-use App\Http\Controllers\Controller;
-use App\Models\NadiActivationGrant;
-use App\Models\NadiAgentCommand;
-use App\Models\NadiRegistration;
-use App\Services\Activation\GrantSigner;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\\Http\\Controllers\\Controller;
+use App\\Models\\NadiActivationGrant;
+use App\\Models\\NadiAgentCommand;
+use App\\Services\\Activation\\GrantSigner;
+use Illuminate\\Http\\Request;
+use Illuminate\\Support\\Facades\\DB;
 use Throwable;
 
 class AgentControlController extends Controller
@@ -119,9 +118,32 @@ class AgentControlController extends Controller
                 ];
             });
 
+            $retryInterval = max(
+                5,
+                (int) config(
+                    'nadi.agent_commands.delivery_retry_seconds',
+                    60
+                )
+            );
+
+            $retryBefore = now()->subSeconds($retryInterval);
+
             $commands = NadiAgentCommand::query()
                 ->where('agent_id', $agent->id)
-                ->where('command_status', 'pending')
+                ->where(function ($query) use ($retryBefore)
+                {
+                    $query->where('command_status', 'pending')
+                        ->orWhere(function ($retryQuery) use ($retryBefore)
+                        {
+                            $retryQuery->where('command_status', 'delivered')
+                                ->whereNull('acknowledged_at')
+                                ->where(function ($deliveryQuery) use ($retryBefore)
+                                {
+                                    $deliveryQuery->whereNull('delivered_at')
+                                        ->orWhere('delivered_at', '<=', $retryBefore);
+                                });
+                        });
+                })
                 ->where(function ($query)
                 {
                     $query->whereNull('expires_at')
@@ -136,6 +158,7 @@ class AgentControlController extends Controller
                 $command->update([
                     'command_status' => 'delivered',
                     'delivered_at' => now(),
+                    'delivery_attempts' => ((int) $command->delivery_attempts) + 1,
                 ]);
             }
 
@@ -171,6 +194,98 @@ class AgentControlController extends Controller
             'success' => true,
             'data' => $result,
         ]);
+    }
+
+    public function acknowledge(Request $request, string $commandId)
+    {
+        $agent = $request->attributes->get('nadi_agent');
+
+        if (!$agent)
+        {
+            return response()->json([
+                'success' => false,
+                'message' => 'Agent authentication required.',
+            ], 401);
+        }
+
+        $result = DB::transaction(function () use ($agent, $commandId)
+        {
+            $command = NadiAgentCommand::query()
+                ->where('agent_id', $agent->id)
+                ->whereKey($commandId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$command)
+            {
+                return [
+                    'http_status' => 404,
+                    'body' => [
+                        'success' => false,
+                        'message' => 'Command not found.',
+                    ],
+                ];
+            }
+
+            if ($command->acknowledged_at !== null)
+            {
+                return [
+                    'http_status' => 200,
+                    'body' => [
+                        'success' => true,
+                        'acknowledged' => true,
+                        'idempotent' => true,
+                        'command_id' => $command->id,
+                        'acknowledged_at' => $command->acknowledged_at,
+                    ],
+                ];
+            }
+
+            if (
+                $command->expires_at !== null
+                && $command->expires_at->isPast()
+            )
+            {
+                return [
+                    'http_status' => 410,
+                    'body' => [
+                        'success' => false,
+                        'message' => 'Command has expired.',
+                    ],
+                ];
+            }
+
+            if ($command->command_status !== 'delivered')
+            {
+                return [
+                    'http_status' => 409,
+                    'body' => [
+                        'success' => false,
+                        'message' => 'Command has not been delivered.',
+                    ],
+                ];
+            }
+
+            $command->update([
+                'acknowledged_at' => now(),
+            ]);
+
+            return [
+                'http_status' => 200,
+                'body' => [
+                    'success' => true,
+                    'acknowledged' => true,
+                    'idempotent' => false,
+                    'command_id' => $command->id,
+                    'acknowledged_at' => $command->fresh()->acknowledged_at,
+                ],
+            ];
+        });
+
+        return response()->json(
+            $result['body'],
+            $result['http_status']
+        );
     }
 
     private function isGrantEligible(
