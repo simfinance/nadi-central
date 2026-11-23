@@ -32,4 +32,11 @@ return [
             'application_logs',
         ],
     ],
+
+    'telemetry' => [
+        'logs_enabled' => (bool) env(
+            'NADI_TELEMETRY_LOGS_ENABLED',
+            false
+        ),
+    ],
 ];
