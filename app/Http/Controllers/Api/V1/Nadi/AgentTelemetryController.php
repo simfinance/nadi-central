@@ -86,6 +86,10 @@ class AgentTelemetryController extends Controller
                         'queue_jobs',
                         'scheduler_metrics',
                         'scheduler_events',
+                        'application_events',
+                        'nginx_http_requests',
+                        'application_http_requests',
+                        'application_http_errors',
                     ]),
                 ],
 
