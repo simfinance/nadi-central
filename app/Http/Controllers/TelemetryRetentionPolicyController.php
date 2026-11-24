@@ -31,6 +31,10 @@ class TelemetryRetentionPolicyController extends Controller
             'label' => 'Telemetry Gaps',
             'description' => 'Resolved telemetry sequence gaps. Unresolved gaps are preserved.',
         ],
+        'central_health_snapshots' => [
+            'label' => 'Central Health Snapshots',
+            'description' => 'Historical snapshots of Central host, services, database, PHP, Laravel, and system health.',
+        ],
     ];
 
     public function index(): View
