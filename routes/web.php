@@ -19,6 +19,7 @@ use App\Http\Controllers\ApplicationLifecycleController;
 use App\Http\Controllers\TelemetryRetentionPolicyController;
 use App\Http\Controllers\NotificationMailSettingsController;
 use App\Http\Controllers\NotificationDeliveryController;
+use App\Http\Controllers\NotificationTemplateController;
 
 Route::get('/', function () {
     if (Auth::check())
