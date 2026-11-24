@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
@@ -80,6 +81,69 @@ class CentralHealthController extends Controller
     public function collectSnapshot(): array
     {
         return $this->snapshot();
+    }
+
+    public function networkHistory()
+    {
+        $rows = DB::table('nadi_central_health_snapshots')
+            ->where('sampled_at', '>=', now('UTC')->subDay())
+            ->whereNotNull('network_rx_bytes')
+            ->whereNotNull('network_tx_bytes')
+            ->orderByDesc('sampled_at')
+            ->limit(1441)
+            ->get([
+                'sampled_at',
+                'network_rx_bytes',
+                'network_tx_bytes',
+            ])
+            ->reverse()
+            ->values();
+
+        $points = [];
+        $previous = null;
+
+        foreach ($rows as $row)
+        {
+            $sampledAt = Carbon::parse($row->sampled_at, 'UTC');
+            $rxBytes = (int) $row->network_rx_bytes;
+            $txBytes = (int) $row->network_tx_bytes;
+            $sampledMs = $sampledAt->timestamp * 1000;
+            $rxBps = null;
+            $txBps = null;
+
+            if ($previous !== null)
+            {
+                $elapsedSeconds = ($sampledMs - $previous['sampled_ms']) / 1000;
+
+                if (
+                    $elapsedSeconds > 0
+                    && $rxBytes >= $previous['rx_bytes']
+                    && $txBytes >= $previous['tx_bytes']
+                )
+                {
+                    $rxBps = round(($rxBytes - $previous['rx_bytes']) / $elapsedSeconds, 2);
+                    $txBps = round(($txBytes - $previous['tx_bytes']) / $elapsedSeconds, 2);
+                }
+            }
+
+            $points[] = [
+                'sampled_ms' => $sampledMs,
+                'rx_bps' => $rxBps,
+                'tx_bps' => $txBps,
+            ];
+
+            $previous = [
+                'sampled_ms' => $sampledMs,
+                'rx_bytes' => $rxBytes,
+                'tx_bytes' => $txBytes,
+            ];
+        }
+
+        return response()->json([
+            'timezone' => 'Asia/Jakarta',
+            'window_hours' => 24,
+            'points' => $points,
+        ])->header('Cache-Control', 'no-store');
     }
 
     private function snapshot(): array
