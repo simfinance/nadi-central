@@ -16,6 +16,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $trustedProxies = config('app.trusted_proxies', []);
+
+        if ($trustedProxies !== [])
+        {
+            $middleware->trustProxies(
+                at: $trustedProxies,
+                headers: Request::HEADER_X_FORWARDED_FOR,
+            );
+        }
+
         $middleware->alias([
             'nadi.agent' => NadiAgentAuthentication::class,
             'mfa' => EnsureMfaEnabled::class,
