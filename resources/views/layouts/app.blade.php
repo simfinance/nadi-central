@@ -548,6 +548,14 @@
                         <span>Notifications</span>
                     </a>
 
+                    <a href="{{ route('management.notification-templates') }}" class="menu-link {{ request()->routeIs('management.notification-templates*') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16v16H4z"/>
+                            <path d="M8 8h8M8 12h8M8 16h5"/>
+                        </svg>
+                        <span>Email Templates</span>
+                    </a>
+
                     <a href="{{ route('management.notification-mail') }}" class="menu-link {{ request()->routeIs('management.notification-mail*') ? 'active' : '' }}">
                         <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="5" width="18" height="14" rx="2"/>
