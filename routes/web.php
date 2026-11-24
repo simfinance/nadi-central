@@ -52,6 +52,9 @@ Route::middleware(['auth', 'mfa'])->group(function () {
     Route::get('/central-health', [CentralHealthController::class, 'index'])
         ->name('monitoring.central-health');
 
+    Route::get('/central-health/network-history', [CentralHealthController::class, 'networkHistory'])
+        ->name('monitoring.central-health.network-history');
+
     Route::prefix('monitoring')
         ->name('monitoring.')
         ->group(function () {
