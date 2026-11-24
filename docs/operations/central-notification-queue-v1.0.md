@@ -13,13 +13,21 @@ Open Management → Notifications.
 The page provides:
 
 - Recipient email address.
-- Subject.
-- Plain-text message body.
+- Optional selection of an active email template.
+- Subject and plain-text message body, which can be edited after selecting a template.
 - Queue submission.
 - Paginated delivery history.
 - Delivery status, attempt count, queued timestamp, sent timestamp, and last error.
 
-The route uses the existing authenticated Central web route group.
+### Email template management
+
+Open Management → Email Templates.
+
+Authenticated Central operators can create, edit, activate/deactivate, and delete templates. Each template stores a unique name, subject, plain-text body, and active flag.
+
+Active templates are loaded into the Notifications composer. Selecting one copies its subject and body into the compose fields; the operator can edit either field before queueing. Template content is not dynamically rendered and no placeholder substitution is performed in this version. Changes to a template do not modify notifications that were already queued.
+
+The template management routes use the existing authenticated Central web route group.
 
 ## Delivery lifecycle
 
