@@ -18,6 +18,7 @@ use App\Http\Controllers\AgentCredentialController;
 use App\Http\Controllers\ApplicationLifecycleController;
 use App\Http\Controllers\TelemetryRetentionPolicyController;
 use App\Http\Controllers\NotificationMailSettingsController;
+use App\Http\Controllers\NotificationDeliveryController;
 
 Route::get('/', function () {
     if (Auth::check())
@@ -88,6 +89,9 @@ Route::middleware('auth')->group(function () {
             Route::get('/notification-mail', [NotificationMailSettingsController::class, 'index'])->name('notification-mail');
             Route::put('/notification-mail', [NotificationMailSettingsController::class, 'update'])->name('notification-mail.update');
             Route::post('/notification-mail/test', [NotificationMailSettingsController::class, 'sendTest'])->name('notification-mail.test');
+
+            Route::get('/notifications', [NotificationDeliveryController::class, 'index'])->name('notifications');
+            Route::post('/notifications', [NotificationDeliveryController::class, 'store'])->name('notifications.store');
 
             // Ringkasan seluruh server & aplikasi
             Route::get('/telemetry', [TelemetryController::class, 'index'])
