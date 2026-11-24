@@ -70,6 +70,7 @@
                 <input
                     type="text"
                     name="subject"
+                    data-placeholder-target
                     value="{{ old('subject') }}"
                     maxlength="255"
                     required
@@ -80,12 +81,29 @@
                 <span>Message</span>
                 <textarea
                     name="body"
+                    data-placeholder-target
                     rows="7"
                     maxlength="20000"
                     required
                 >{{ old('body') }}</textarea>
                 <small>Plain text email. Maximum 20,000 characters.</small>
             </label>
+
+            <div class="notification-placeholder-heading">
+                <strong>Drag placeholders into Subject or Message</strong>
+                <p>Drag a token into either field, or click a token to insert it at the cursor.</p>
+                <div class="notification-placeholder-palette">
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{recipient_email}}">@{{recipient_email}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{current_date}}">@{{current_date}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{current_datetime}}">@{{current_datetime}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{application_name}}">@{{application_name}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{server_name}}">@{{server_name}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{severity}}">@{{severity}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{event_name}}">@{{event_name}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{event_time}}">@{{event_time}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{message}}">@{{message}}</button>
+                </div>
+            </div>
 
             <div class="notification-placeholder-heading">
                 <strong>Placeholder values</strong>
@@ -101,7 +119,7 @@
                         value="{{ old('placeholders.application_name', config('app.name', 'NADI')) }}"
                         maxlength="255"
                     >
-                    <small>{{ '{{application_name}}' }}</small>
+                    <small>@{{application_name}}</small>
                 </label>
 
                 <label class="notification-field">
@@ -112,7 +130,7 @@
                         value="{{ old('placeholders.server_name') }}"
                         maxlength="255"
                     >
-                    <small>{{ '{{server_name}}' }}</small>
+                    <small>@{{server_name}}</small>
                 </label>
 
                 <label class="notification-field">
@@ -124,7 +142,7 @@
                         maxlength="100"
                         placeholder="Critical, Warning, Info"
                     >
-                    <small>{{ '{{severity}}' }}</small>
+                    <small>@{{severity}}</small>
                 </label>
 
                 <label class="notification-field">
@@ -135,7 +153,7 @@
                         value="{{ old('placeholders.event_name') }}"
                         maxlength="255"
                     >
-                    <small>{{ '{{event_name}}' }}</small>
+                    <small>@{{event_name}}</small>
                 </label>
 
                 <label class="notification-field">
@@ -147,7 +165,7 @@
                         maxlength="100"
                         placeholder="Example: 24-11-2026 14:30:00"
                     >
-                    <small>{{ '{{event_time}}' }}</small>
+                    <small>@{{event_time}}</small>
                 </label>
 
                 <label class="notification-field notification-placeholder-message">
@@ -157,12 +175,12 @@
                         rows="4"
                         maxlength="10000"
                     >{{ old('placeholders.message') }}</textarea>
-                    <small>{{ '{{message}}' }}</small>
+                    <small>@{{message}}</small>
                 </label>
             </div>
 
             <div class="notification-placeholder-reference">
-                Automatic: {{ '{{recipient_email}}' }}, {{ '{{current_date}}' }}, {{ '{{current_datetime}}' }}.
+                Automatic: @{{recipient_email}}, @{{current_date}}, @{{current_datetime}}.
                 Unrecognized placeholders are rejected before the email enters the queue.
             </div>
 
@@ -343,6 +361,44 @@
     .notification-placeholder-message
     {
         grid-column: 1 / -1;
+    }
+
+
+    .notification-placeholder-palette
+    {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .placeholder-token
+    {
+        padding: 7px 10px;
+        border: 1px dashed var(--accent);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--accent);
+        font: 600 10px var(--mono);
+        cursor: grab;
+        user-select: none;
+    }
+
+    .placeholder-token:active
+    {
+        cursor: grabbing;
+    }
+
+    [data-placeholder-target]
+    {
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    [data-placeholder-target].placeholder-drop-active
+    {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+        outline: none;
     }
 
     .notification-placeholder-reference
@@ -543,25 +599,97 @@
 
 <script>
     (function () {
-        var templateSelect = document.getElementById('notificationTemplate');
-        var subjectInput = document.querySelector('input[name="subject"]');
-        var bodyInput = document.querySelector('textarea[name="body"]');
+        var lastFocusedTarget = null;
+        var placeholderTokens = document.querySelectorAll('.placeholder-token');
 
-        if (!templateSelect || !subjectInput || !bodyInput)
+        function insertPlaceholder(target, placeholder)
         {
-            return;
-        }
-
-        templateSelect.addEventListener('change', function () {
-            var selectedOption = templateSelect.options[templateSelect.selectedIndex];
-
-            if (!selectedOption.value)
+            if (!target || !placeholder)
             {
                 return;
             }
 
-            subjectInput.value = selectedOption.dataset.subject || '';
-            bodyInput.value = selectedOption.dataset.body || '';
+            target.focus();
+
+            var start = typeof target.selectionStart === 'number'
+                ? target.selectionStart
+                : target.value.length;
+            var end = typeof target.selectionEnd === 'number'
+                ? target.selectionEnd
+                : target.value.length;
+
+            if (typeof target.setRangeText === 'function')
+            {
+                target.setRangeText(placeholder, start, end, 'end');
+            }
+            else
+            {
+                target.value = target.value.slice(0, start)
+                    + placeholder
+                    + target.value.slice(end);
+            }
+
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        document.addEventListener('focusin', function (event) {
+            if (event.target.matches('[data-placeholder-target]'))
+            {
+                lastFocusedTarget = event.target;
+            }
+        });
+
+        placeholderTokens.forEach(function (token) {
+            token.addEventListener('dragstart', function (event) {
+                event.dataTransfer.setData('text/plain', token.dataset.placeholder || '');
+                event.dataTransfer.effectAllowed = 'copy';
+            });
+
+            token.addEventListener('click', function () {
+                insertPlaceholder(lastFocusedTarget, token.dataset.placeholder);
+            });
+        });
+
+        document.querySelectorAll('[data-placeholder-target]').forEach(function (target) {
+            target.addEventListener('dragover', function (event) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+                target.classList.add('placeholder-drop-active');
+            });
+
+            target.addEventListener('dragleave', function () {
+                target.classList.remove('placeholder-drop-active');
+            });
+
+            target.addEventListener('drop', function (event) {
+                event.preventDefault();
+                target.classList.remove('placeholder-drop-active');
+
+                var placeholder = event.dataTransfer.getData('text/plain');
+
+                if (/^\{\{[a-zA-Z0-9_]+\}\}$/.test(placeholder))
+                {
+                    var selectionPosition = target.selectionStart;
+
+                    if (typeof selectionPosition !== 'number')
+                    {
+                        selectionPosition = target.value.length;
+                    }
+
+                    target.focus();
+
+                    if (typeof target.setRangeText === 'function')
+                    {
+                        target.setRangeText(placeholder, selectionPosition, selectionPosition, 'end');
+                    }
+                    else
+                    {
+                        target.value += placeholder;
+                    }
+
+                    target.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
         });
     })();
 </script>
