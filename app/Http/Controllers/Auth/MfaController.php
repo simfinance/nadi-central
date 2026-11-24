@@ -31,7 +31,7 @@ class MfaController extends Controller
     public function verify(Request $request, TotpService $totp): RedirectResponse
     {
         $request->validate([
-            'code' => ['required', 'string', 'size:6'],
+            'code' => ['required', 'string', 'regex:/^(?:[0-9]{6}|[A-Fa-f0-9]{10})$/'],
         ]);
 
         $user = $this->pendingUser($request);
@@ -212,6 +212,10 @@ class MfaController extends Controller
         if (! $request->user())
         {
             $this->completeLogin($request, $user);
+        }
+        else
+        {
+            $request->session()->regenerate();
         }
 
         $this->audit($request, $user, 'enrollment_succeeded');
