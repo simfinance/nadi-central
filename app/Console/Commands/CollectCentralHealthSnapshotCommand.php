@@ -28,6 +28,8 @@ class CollectCentralHealthSnapshotCommand extends Command
                 'critical_count' => $overall['critical'] ?? 0,
                 'warning_count' => $overall['warning'] ?? 0,
                 'info_count' => $overall['info'] ?? 0,
+                'network_rx_bytes' => $snapshot['network']['totals']['rx_bytes'] ?? null,
+                'network_tx_bytes' => $snapshot['network']['totals']['tx_bytes'] ?? null,
                 'snapshot_payload' => json_encode(
                     $snapshot,
                     JSON_THROW_ON_ERROR
