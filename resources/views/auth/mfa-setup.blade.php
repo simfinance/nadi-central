@@ -130,14 +130,17 @@
             var target = document.getElementById('qrcode');
             var provisioningUri = @json($provisioningUri);
 
-            if (window.QRCode) {
+            if (window.QRCode)
+            {
                 new QRCode(target, {
                     text: provisioningUri,
                     width: 220,
                     height: 220,
                     correctLevel: QRCode.CorrectLevel.M
                 });
-            } else {
+            }
+            else
+            {
                 target.textContent = 'QR tidak tersedia. Gunakan secret manual di atas.';
             }
         })();
