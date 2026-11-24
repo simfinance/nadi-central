@@ -101,7 +101,7 @@ After deploying new application code, restart long-running workers:
 - A status of sent means the SMTP provider accepted the message; it does not prove inbox placement or that the recipient read it.
 - The test email on Management → Email Notifications remains synchronous and independent of this queue.
 - Message bodies are encrypted using APP_KEY. Keep APP_KEY stable and protected; changing it without a key migration makes existing encrypted bodies unreadable.
-- The current compose page is intended for Central-originated operational messages. It is not yet a template engine, recipient-group manager, or event rule engine.
+- The current compose page supports saved plain-text templates and the documented placeholder list. It is not yet a recipient-group manager or event rule engine; placeholder values are supplied manually and are not populated from Agent events.
 - Queue worker health and queue backlog monitoring are not yet surfaced in the Central UI.
 
 ## Explicit exclusions
