@@ -77,3 +77,26 @@ An administrative MFA reset endpoint is intentionally not included yet. The insp
 - The application server clock must be synchronized using NTP.
 - The QR provisioning URI and manual secret must never be logged or sent to external QR APIs.
 - If a user loses both the authenticator and all recovery codes, use a separately approved operator recovery procedure; do not manually edit the database as a normal workflow.
+
+
+## Client IP behind reverse proxies
+
+Central resolves the client IP through Laravel's trusted-proxy handling. The application reads the comma-separated `TRUSTED_PROXIES` environment variable and trusts only the configured proxy IP addresses or CIDR ranges. Only the standard `X-Forwarded-For` header is enabled for client-IP resolution.
+
+Set `TRUSTED_PROXIES` in the production `.env` to the actual reverse proxy address(es), for example:
+
+```dotenv
+TRUSTED_PROXIES=127.0.0.1,10.0.0.10
+```
+
+Use the real source IP or CIDR of the proxy connection as seen by the Central application server. Do not copy the example values unless they match the infrastructure. For a multi-proxy chain, include each trusted proxy hop that can appear between the client and Central.
+
+The edge proxy must overwrite or safely construct `X-Forwarded-For`; it must not pass through arbitrary client-supplied forwarding values as authoritative. Never use `TRUSTED_PROXIES=*` on a public application without a deliberate, verified network design.
+
+After changing the production environment:
+
+```bash
+php artisan optimize:clear
+```
+
+New MFA audit entries and MFA rate-limit keys will then use Laravel's resolved client IP. Existing audit rows are not rewritten.
