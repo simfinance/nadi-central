@@ -1,6 +1,6 @@
 <?php
 
-namespace App\\Services\\Auth;
+namespace App\Services\Auth;
 
 class TotpService
 {
@@ -26,7 +26,7 @@ class TotpService
 
     public function verify(string $secret, string $code, ?int $lastAcceptedStep = null): ?int
     {
-        if (! preg_match('/^\\d{6}$/', $code))
+        if (! preg_match('/^\d{6}$/', $code))
         {
             return null;
         }
@@ -100,7 +100,7 @@ class TotpService
 
             if ($position === false)
             {
-                throw new \\InvalidArgumentException('Invalid TOTP secret.');
+                throw new \InvalidArgumentException('Invalid TOTP secret.');
             }
 
             $bits .= str_pad(decbin($position), 5, '0', STR_PAD_LEFT);
