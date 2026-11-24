@@ -734,6 +734,8 @@ document.addEventListener('DOMContentLoaded', function ()
             return;
         }
 
+        networkHistoryFetchedAt = nowMs;
+
         try
         {
             const response = await fetch(NETWORK_HISTORY_URL, {
@@ -761,7 +763,6 @@ document.addEventListener('DOMContentLoaded', function ()
             networkHistory.t = points.map(function (point) { return Number(point.sampled_ms); });
             networkHistory.rx = points.map(function (point) { return point.rx_bps === null ? null : Number(point.rx_bps); });
             networkHistory.tx = points.map(function (point) { return point.tx_bps === null ? null : Number(point.tx_bps); });
-            networkHistoryFetchedAt = nowMs;
             renderCharts(snap);
         }
         catch (error)
