@@ -46,4 +46,11 @@ return [
             false
         ),
     ],
+
+    'prometheus' => [
+        'metrics_token' => env(
+            'NADI_PROMETHEUS_METRICS_TOKEN',
+            ''
+        ),
+    ],
 ];
