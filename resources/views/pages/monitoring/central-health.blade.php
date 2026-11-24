@@ -61,12 +61,12 @@
     <section class="ch-panel">
         <div class="ch-panel-head">
             <h2>Live Telemetry <span class="ch-tag" id="chHistLabel">collecting…</span></h2>
-            <p>Rolling window kept in this browser. Rates are computed between refreshes; nothing is stored on the server.</p>
+            <p>CPU, memory, and disk charts use the current browser session. Network throughput is calculated from persisted Central Health snapshots over the last 24 hours. All chart times use WIB.</p>
         </div>
         <div class="ch-grid-2 ch-pad">
             <div class="ch-chart-card"><div class="ch-chart-head"><span>CPU &amp; I/O wait</span><div class="ch-legend" id="legCpu"></div></div><div class="ch-chart" id="chartCpu"></div></div>
             <div class="ch-chart-card"><div class="ch-chart-head"><span>Memory &amp; swap</span><div class="ch-legend" id="legMem"></div></div><div class="ch-chart" id="chartMem"></div></div>
-            <div class="ch-chart-card"><div class="ch-chart-head"><span>Network throughput</span><div class="ch-legend" id="legNet"></div></div><div class="ch-chart" id="chartNet"></div></div>
+            <div class="ch-chart-card"><div class="ch-chart-head"><span>Network throughput · 24h history</span><div class="ch-legend" id="legNet"></div></div><div class="ch-chart" id="chartNet"></div></div>
             <div class="ch-chart-card"><div class="ch-chart-head"><span>Disk I/O</span><div class="ch-legend" id="legDisk"></div></div><div class="ch-chart" id="chartDisk"></div></div>
         </div>
     </section>
@@ -148,6 +148,9 @@
 document.addEventListener('DOMContentLoaded', function ()
 {
     const DATA_URL = @json(route('monitoring.central-health'));
+    const NETWORK_HISTORY_URL = @json(route('monitoring.central-health.network-history'));
+    const NETWORK_HISTORY_REFRESH_MS = 60000;
+    const WIB_TIMEZONE = 'Asia/Jakarta';
     const HISTORY_MAX = 90;
 
     let snap = @json($snapshot);
@@ -156,6 +159,8 @@ document.addEventListener('DOMContentLoaded', function ()
 
     const S = { auto: true, interval: 5000, timer: null, controller: null, loading: false };
     const hist = { t: [], cpu: [], iow: [], mem: [], swap: [], load: [], rx: [], tx: [], rd: [], wr: [], dbl: [] };
+    const networkHistory = { t: [], rx: [], tx: [] };
+    let networkHistoryFetchedAt = 0;
     const charts = {};
 
     const $ = function (id) { return document.getElementById(id); };
@@ -210,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function ()
     {
         if (!iso) { return 'N/A'; }
         const d = new Date(iso);
-        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString('en-GB', { hour12: false });
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: WIB_TIMEZONE }) + ' ' + d.toLocaleTimeString('en-GB', { hour12: false, timeZone: WIB_TIMEZONE });
     }
 
     function lv(v, warn, crit) { return v === null || v === undefined ? 'idle' : v >= crit ? 'bad' : v >= warn ? 'warn' : 'ok'; }
@@ -329,10 +334,11 @@ document.addEventListener('DOMContentLoaded', function ()
         const el = $(id);
         charts[id] = o;
 
-        if (hist.t.length < 2) { el.innerHTML = '<div class="ch-empty">Collecting samples… (needs 2 refreshes)</div>'; return; }
+        const ts = o.timestamps || hist.t;
+        if (ts.length < 2) { el.innerHTML = '<div class="ch-empty">' + esc(o.emptyText || 'Collecting samples… (needs 2 refreshes)') + '</div>'; return; }
 
         const W = Math.max(el.clientWidth, 260), H = 190, m = { l: 54, r: 12, t: 10, b: 24 };
-        const iw = W - m.l - m.r, ih = H - m.t - m.b, ts = hist.t;
+        const iw = W - m.l - m.r, ih = H - m.t - m.b;
         const x0 = ts[0], x1 = ts[ts.length - 1];
 
         let ymax = o.yMax;
@@ -356,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function ()
         for (let i = 0; i <= 4; i++) {
             const t = x0 + (x1 - x0) * i / 4;
             svg += '<text class="ch-ax" x="' + X(t).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' + (i === 0 ? 'start' : i === 4 ? 'end' : 'middle') + '">' +
-                new Date(t).toLocaleTimeString('en-GB', { hour12: false, minute: '2-digit', second: '2-digit' }) + '</text>';
+                new Date(t).toLocaleTimeString('en-GB', { hour12: false, minute: '2-digit', second: '2-digit', timeZone: WIB_TIMEZONE }) + '</text>';
         }
 
         (o.thresholds || []).forEach(function (th) {
@@ -388,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function ()
             ts.forEach(function (v, i) { const d = Math.abs(v - t); if (d < bd) { bd = d; best = i; } });
             const cx = X(ts[best]);
             cross.setAttribute('x1', cx); cross.setAttribute('x2', cx);
-            let html = '<div class="ch-tip-time">' + new Date(ts[best]).toLocaleTimeString('en-GB', { hour12: false }) + '</div>';
+            let html = '<div class="ch-tip-time">' + new Date(ts[best]).toLocaleTimeString('en-GB', { hour12: false, timeZone: WIB_TIMEZONE }) + '</div>';
             o.series.forEach(function (s) {
                 html += '<div class="ch-tip-row"><span class="ch-dot" style="background:' + s.color + '"></span>' + esc(s.name) + '<b>' + esc(s.values[best] === null || s.values[best] === undefined ? 'N/A' : o.fmt(s.values[best])) + '</b></div>';
             });
@@ -481,7 +487,7 @@ document.addEventListener('DOMContentLoaded', function ()
             series: [{ name: 'RAM', color: C2, area: true, values: hist.mem }, { name: 'Swap', color: C3, values: hist.swap }] });
 
         legend('legNet', [{ name: 'RX', color: C3 }, { name: 'TX', color: C2 }]);
-        drawChart('chartNet', { fmt: bits, axis: bits, series: [{ name: 'Receive', color: C3, area: true, values: hist.rx }, { name: 'Transmit', color: C2, area: true, values: hist.tx }] });
+        drawChart('chartNet', { timestamps: networkHistory.t, emptyText: 'Belum ada cukup riwayat jaringan tersimpan (minimal 2 snapshot).', fmt: bits, axis: bits, series: [{ name: 'Receive', color: C3, area: true, values: networkHistory.rx }, { name: 'Transmit', color: C2, area: true, values: networkHistory.tx }] });
 
         legend('legDisk', [{ name: 'Read', color: C1 }, { name: 'Write', color: C4 }]);
         drawChart('chartDisk', { fmt: rate, axis: function (v) { return bytes(v, 0); }, series: [{ name: 'Read', color: C1, area: true, values: hist.rd }, { name: 'Write', color: C4, area: true, values: hist.wr }] });
@@ -719,6 +725,51 @@ document.addEventListener('DOMContentLoaded', function ()
         renderAll();
     }
 
+    async function loadNetworkHistory(force)
+    {
+        const nowMs = Date.now();
+
+        if (!force && nowMs - networkHistoryFetchedAt < NETWORK_HISTORY_REFRESH_MS)
+        {
+            return;
+        }
+
+        try
+        {
+            const response = await fetch(NETWORK_HISTORY_URL, {
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (response.redirected)
+            {
+                window.location.reload();
+                return;
+            }
+
+            if (!response.ok)
+            {
+                throw new Error('Unable to load network history (HTTP ' + response.status + ').');
+            }
+
+            const result = await response.json();
+            const points = Array.isArray(result.points) ? result.points : [];
+
+            networkHistory.t = points.map(function (point) { return Number(point.sampled_ms); });
+            networkHistory.rx = points.map(function (point) { return point.rx_bps === null ? null : Number(point.rx_bps); });
+            networkHistory.tx = points.map(function (point) { return point.tx_bps === null ? null : Number(point.tx_bps); });
+            networkHistoryFetchedAt = nowMs;
+            renderCharts(snap);
+        }
+        catch (error)
+        {
+            $('chartNet').innerHTML = '<div class="ch-empty">' + esc(error.message || 'Unable to load network history.') + '</div>';
+        }
+    }
+
     async function load()
     {
         if (S.loading) { return; }
@@ -734,6 +785,7 @@ document.addEventListener('DOMContentLoaded', function ()
             if (res.redirected) { window.location.reload(); return; }
             if (!res.ok) { throw new Error('Unable to refresh health data (HTTP ' + res.status + ').'); }
             accept(await res.json());
+            loadNetworkHistory(false);
         } catch (e) {
             if (e.name !== 'AbortError') { $('chError').textContent = e.message || 'Unable to refresh health data.'; $('chError').hidden = false; }
         } finally {
@@ -762,6 +814,7 @@ document.addEventListener('DOMContentLoaded', function ()
     window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { Object.keys(charts).forEach(function (id) { drawChart(id, charts[id]); }); }, 150); });
 
     accept(snap);
+    loadNetworkHistory(true);
     schedule();
 });
 </script>
