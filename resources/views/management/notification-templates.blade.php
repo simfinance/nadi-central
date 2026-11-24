@@ -39,18 +39,18 @@
             <p>Enter these tokens in the subject or body. Values are resolved when the notification is queued.</p>
             <div class="template-placeholder-group">
                 <span>Automatic</span>
-                <code>{{ '{{recipient_email}}' }}</code>
-                <code>{{ '{{current_date}}' }}</code>
-                <code>{{ '{{current_datetime}}' }}</code>
+                <code>@{{recipient_email}}</code>
+                <code>@{{current_date}}</code>
+                <code>@{{current_datetime}}</code>
             </div>
             <div class="template-placeholder-group">
                 <span>Filled in on Notifications</span>
-                <code>{{ '{{application_name}}' }}</code>
-                <code>{{ '{{server_name}}' }}</code>
-                <code>{{ '{{severity}}' }}</code>
-                <code>{{ '{{event_name}}' }}</code>
-                <code>{{ '{{event_time}}' }}</code>
-                <code>{{ '{{message}}' }}</code>
+                <code>@{{application_name}}</code>
+                <code>@{{server_name}}</code>
+                <code>@{{severity}}</code>
+                <code>@{{event_name}}</code>
+                <code>@{{event_time}}</code>
+                <code>@{{message}}</code>
             </div>
         </div>
 
