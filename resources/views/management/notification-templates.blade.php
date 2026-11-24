@@ -54,6 +54,22 @@
             </div>
         </div>
 
+        <div class="template-placeholder-palette">
+            <strong>Drag placeholders into any Subject or Message field</strong>
+            <p>These tokens are available in the create form and every saved template. You can also click a token to insert it at the cursor.</p>
+            <div class="template-placeholder-token-list">
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{recipient_email}}">@{{recipient_email}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{current_date}}">@{{current_date}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{current_datetime}}">@{{current_datetime}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{application_name}}">@{{application_name}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{server_name}}">@{{server_name}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{severity}}">@{{severity}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{event_name}}">@{{event_name}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{event_time}}">@{{event_time}}</button>
+                    <button type="button" class="placeholder-token" draggable="true" data-placeholder="@{{message}}">@{{message}}</button>
+            </div>
+        </div>
+
         <form method="POST" action="{{ route('management.notification-templates.store') }}" class="template-form">
             @csrf
 
@@ -64,12 +80,12 @@
 
             <label class="template-field">
                 <span>Email subject</span>
-                <input type="text" name="subject" value="{{ old('subject') }}" maxlength="255" required>
+                <input type="text" name="subject" data-placeholder-target value="{{ old('subject') }}" maxlength="255" required>
             </label>
 
             <label class="template-field">
                 <span>Message body</span>
-                <textarea name="body" rows="7" maxlength="20000" required>{{ old('body') }}</textarea>
+                <textarea name="body" data-placeholder-target rows="7" maxlength="20000" required>{{ old('body') }}</textarea>
             </label>
 
             <label class="template-checkbox">
@@ -110,12 +126,12 @@
 
                         <label class="template-field">
                             <span>Email subject</span>
-                            <input type="text" name="subject" value="{{ $template->subject }}" maxlength="255" required>
+                            <input type="text" name="subject" data-placeholder-target value="{{ $template->subject }}" maxlength="255" required>
                         </label>
 
                         <label class="template-field">
                             <span>Message body</span>
-                            <textarea name="body" rows="7" maxlength="20000" required>{{ $template->body }}</textarea>
+                            <textarea name="body" data-placeholder-target rows="7" maxlength="20000" required>{{ $template->body }}</textarea>
                         </label>
 
                         <label class="template-checkbox">
@@ -222,6 +238,68 @@
     {
         resize: vertical;
         line-height: 1.7;
+    }
+
+
+    .template-placeholder-palette
+    {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-2);
+    }
+
+    .template-placeholder-palette > strong
+    {
+        color: var(--ink);
+        font-size: 12px;
+    }
+
+    .template-placeholder-palette p
+    {
+        margin: 0;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.6;
+    }
+
+    .template-placeholder-token-list
+    {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .placeholder-token
+    {
+        padding: 7px 10px;
+        border: 1px dashed var(--accent);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--accent);
+        font: 600 10px var(--mono);
+        cursor: grab;
+        user-select: none;
+    }
+
+    .placeholder-token:active
+    {
+        cursor: grabbing;
+    }
+
+    [data-placeholder-target]
+    {
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    [data-placeholder-target].placeholder-drop-active
+    {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+        outline: none;
     }
 
     .template-placeholder-reference
@@ -437,4 +515,100 @@
         }
     }
 </style>
+<script>
+    (function () {
+        var lastFocusedTarget = null;
+        var placeholderTokens = document.querySelectorAll('.placeholder-token');
+
+        function insertPlaceholder(target, placeholder)
+        {
+            if (!target || !placeholder)
+            {
+                return;
+            }
+
+            target.focus();
+
+            var start = typeof target.selectionStart === 'number'
+                ? target.selectionStart
+                : target.value.length;
+            var end = typeof target.selectionEnd === 'number'
+                ? target.selectionEnd
+                : target.value.length;
+
+            if (typeof target.setRangeText === 'function')
+            {
+                target.setRangeText(placeholder, start, end, 'end');
+            }
+            else
+            {
+                target.value = target.value.slice(0, start)
+                    + placeholder
+                    + target.value.slice(end);
+            }
+
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        document.addEventListener('focusin', function (event) {
+            if (event.target.matches('[data-placeholder-target]'))
+            {
+                lastFocusedTarget = event.target;
+            }
+        });
+
+        placeholderTokens.forEach(function (token) {
+            token.addEventListener('dragstart', function (event) {
+                event.dataTransfer.setData('text/plain', token.dataset.placeholder || '');
+                event.dataTransfer.effectAllowed = 'copy';
+            });
+
+            token.addEventListener('click', function () {
+                insertPlaceholder(lastFocusedTarget, token.dataset.placeholder);
+            });
+        });
+
+        document.querySelectorAll('[data-placeholder-target]').forEach(function (target) {
+            target.addEventListener('dragover', function (event) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+                target.classList.add('placeholder-drop-active');
+            });
+
+            target.addEventListener('dragleave', function () {
+                target.classList.remove('placeholder-drop-active');
+            });
+
+            target.addEventListener('drop', function (event) {
+                event.preventDefault();
+                target.classList.remove('placeholder-drop-active');
+
+                var placeholder = event.dataTransfer.getData('text/plain');
+
+                if (/^\{\{[a-zA-Z0-9_]+\}\}$/.test(placeholder))
+                {
+                    var selectionPosition = target.selectionStart;
+
+                    if (typeof selectionPosition !== 'number')
+                    {
+                        selectionPosition = target.value.length;
+                    }
+
+                    target.focus();
+
+                    if (typeof target.setRangeText === 'function')
+                    {
+                        target.setRangeText(placeholder, selectionPosition, selectionPosition, 'end');
+                    }
+                    else
+                    {
+                        target.value += placeholder;
+                    }
+
+                    target.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+        });
+    })();
+</script>
 @endsection
