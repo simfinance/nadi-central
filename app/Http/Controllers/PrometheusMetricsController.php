@@ -273,10 +273,23 @@ class PrometheusMetricsController extends Controller
 
     private function latestStreams()
     {
-        $latestRecords = DB::table('nadi_telemetry_records')
-            ->select('stream_id')
-            ->selectRaw('MAX(observed_at) AS latest_observed_at')
-            ->groupBy('stream_id');
+        $latestRecords = DB::table('nadi_telemetry_records as telemetry_records')
+            ->join(
+                'nadi_telemetry_streams as telemetry_streams',
+                'telemetry_streams.id',
+                '=',
+                'telemetry_records.stream_id'
+            )
+            ->whereIn(
+                'telemetry_streams.stream_name',
+                [
+                    'server_metrics',
+                    'application_metrics',
+                ]
+            )
+            ->select('telemetry_records.stream_id')
+            ->selectRaw('MAX(telemetry_records.observed_at) AS latest_observed_at')
+            ->groupBy('telemetry_records.stream_id');
 
         return DB::table('nadi_telemetry_streams as streams')
             ->join('nadi_agents as agents', 'agents.id', '=', 'streams.agent_id')
