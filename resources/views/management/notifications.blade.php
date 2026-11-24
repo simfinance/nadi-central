@@ -87,6 +87,85 @@
                 <small>Plain text email. Maximum 20,000 characters.</small>
             </label>
 
+            <div class="notification-placeholder-heading">
+                <strong>Placeholder values</strong>
+                <p>Fill only the values used by the selected template. System placeholders are filled automatically.</p>
+            </div>
+
+            <div class="notification-placeholder-grid">
+                <label class="notification-field">
+                    <span>Application name</span>
+                    <input
+                        type="text"
+                        name="placeholders[application_name]"
+                        value="{{ old('placeholders.application_name', config('app.name', 'NADI')) }}"
+                        maxlength="255"
+                    >
+                    <small>{{ '{{application_name}}' }}</small>
+                </label>
+
+                <label class="notification-field">
+                    <span>Server name</span>
+                    <input
+                        type="text"
+                        name="placeholders[server_name]"
+                        value="{{ old('placeholders.server_name') }}"
+                        maxlength="255"
+                    >
+                    <small>{{ '{{server_name}}' }}</small>
+                </label>
+
+                <label class="notification-field">
+                    <span>Severity</span>
+                    <input
+                        type="text"
+                        name="placeholders[severity]"
+                        value="{{ old('placeholders.severity') }}"
+                        maxlength="100"
+                        placeholder="Critical, Warning, Info"
+                    >
+                    <small>{{ '{{severity}}' }}</small>
+                </label>
+
+                <label class="notification-field">
+                    <span>Event name</span>
+                    <input
+                        type="text"
+                        name="placeholders[event_name]"
+                        value="{{ old('placeholders.event_name') }}"
+                        maxlength="255"
+                    >
+                    <small>{{ '{{event_name}}' }}</small>
+                </label>
+
+                <label class="notification-field">
+                    <span>Event time</span>
+                    <input
+                        type="text"
+                        name="placeholders[event_time]"
+                        value="{{ old('placeholders.event_time') }}"
+                        maxlength="100"
+                        placeholder="Example: 24-11-2026 14:30:00"
+                    >
+                    <small>{{ '{{event_time}}' }}</small>
+                </label>
+
+                <label class="notification-field notification-placeholder-message">
+                    <span>Additional message / details</span>
+                    <textarea
+                        name="placeholders[message]"
+                        rows="4"
+                        maxlength="10000"
+                    >{{ old('placeholders.message') }}</textarea>
+                    <small>{{ '{{message}}' }}</small>
+                </label>
+            </div>
+
+            <div class="notification-placeholder-reference">
+                Automatic: {{ '{{recipient_email}}' }}, {{ '{{current_date}}' }}, {{ '{{current_datetime}}' }}.
+                Unrecognized placeholders are rejected before the email enters the queue.
+            </div>
+
             <div class="notification-form-actions">
                 <button type="submit" class="notification-button">Add to delivery queue</button>
             </div>
@@ -231,6 +310,51 @@
         background: var(--surface-2);
         color: var(--ink);
         font: 500 12px var(--font);
+    }
+
+    .notification-placeholder-heading
+    {
+        display: grid;
+        gap: 6px;
+        padding-top: 8px;
+    }
+
+    .notification-placeholder-heading strong
+    {
+        color: var(--ink);
+        font-size: 12px;
+    }
+
+    .notification-placeholder-heading p
+    {
+        margin: 0;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.6;
+    }
+
+    .notification-placeholder-grid
+    {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .notification-placeholder-message
+    {
+        grid-column: 1 / -1;
+    }
+
+    .notification-placeholder-reference
+    {
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface-2);
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.7;
+        overflow-wrap: anywhere;
     }
 
     .notification-field small
@@ -403,6 +527,16 @@
         .notification-button
         {
             width: 100%;
+        }
+
+        .notification-placeholder-grid
+        {
+            grid-template-columns: 1fr;
+        }
+
+        .notification-placeholder-message
+        {
+            grid-column: auto;
         }
     }
 </style>
