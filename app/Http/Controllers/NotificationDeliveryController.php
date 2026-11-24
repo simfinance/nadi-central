@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Notification\GmailNotificationService;
+use App\Services\Notification\NotificationTemplateRenderer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,8 @@ class NotificationDeliveryController extends Controller
 
     public function store(
         Request $request,
-        GmailNotificationService $mailService
+        GmailNotificationService $mailService,
+        NotificationTemplateRenderer $templateRenderer
     ): RedirectResponse
     {
         $validated = $request->validate([
@@ -50,14 +52,55 @@ class NotificationDeliveryController extends Controller
                 'string',
                 'max:20000',
             ],
+            'placeholders' => [
+                'nullable',
+                'array',
+            ],
+            'placeholders.application_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'placeholders.server_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'placeholders.severity' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'placeholders.event_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'placeholders.event_time' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'placeholders.message' => [
+                'nullable',
+                'string',
+                'max:10000',
+            ],
         ]);
+
+        $rendered = $templateRenderer->render(
+            $validated['subject'],
+            $validated['body'],
+            $validated['recipient'],
+            $validated['placeholders'] ?? []
+        );
 
         try
         {
             $mailService->queue(
                 $validated['recipient'],
-                $validated['subject'],
-                $validated['body']
+                $rendered['subject'],
+                $rendered['body']
             );
         }
         catch (\RuntimeException $exception)
