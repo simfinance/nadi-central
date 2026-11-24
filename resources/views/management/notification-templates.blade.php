@@ -34,6 +34,26 @@
             <p>Templates can be selected from Management → Notifications when composing an email.</p>
         </div>
 
+        <div class="template-placeholder-reference">
+            <strong>Supported placeholders</strong>
+            <p>Enter these tokens in the subject or body. Values are resolved when the notification is queued.</p>
+            <div class="template-placeholder-group">
+                <span>Automatic</span>
+                <code>{{ '{{recipient_email}}' }}</code>
+                <code>{{ '{{current_date}}' }}</code>
+                <code>{{ '{{current_datetime}}' }}</code>
+            </div>
+            <div class="template-placeholder-group">
+                <span>Filled in on Notifications</span>
+                <code>{{ '{{application_name}}' }}</code>
+                <code>{{ '{{server_name}}' }}</code>
+                <code>{{ '{{severity}}' }}</code>
+                <code>{{ '{{event_name}}' }}</code>
+                <code>{{ '{{event_time}}' }}</code>
+                <code>{{ '{{message}}' }}</code>
+            </div>
+        </div>
+
         <form method="POST" action="{{ route('management.notification-templates.store') }}" class="template-form">
             @csrf
 
@@ -202,6 +222,57 @@
     {
         resize: vertical;
         line-height: 1.7;
+    }
+
+    .template-placeholder-reference
+    {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 20px;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-2);
+    }
+
+    .template-placeholder-reference > strong
+    {
+        color: var(--ink);
+        font-size: 12px;
+    }
+
+    .template-placeholder-reference p
+    {
+        margin: 0;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.6;
+    }
+
+    .template-placeholder-group
+    {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .template-placeholder-group span
+    {
+        width: 100%;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .template-placeholder-group code
+    {
+        padding: 5px 8px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        color: var(--accent);
+        font: 500 10px var(--mono);
     }
 
     .template-checkbox
