@@ -16,7 +16,17 @@ class NotificationDeliveryController extends Controller
             ->orderByDesc('created_at')
             ->paginate(20);
 
-        return view('management.notifications', compact('deliveries'));
+        $templates = DB::table('nadi_notification_templates')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'subject',
+                'body',
+            ]);
+
+        return view('management.notifications', compact('deliveries', 'templates'));
     }
 
     public function store(
