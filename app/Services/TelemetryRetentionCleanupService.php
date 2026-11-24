@@ -31,6 +31,10 @@ class TelemetryRetentionCleanupService
             'column' => 'gap_resolved_at',
             'resolved_only' => true,
         ],
+        'central_health_snapshots' => [
+            'table' => 'nadi_central_health_snapshots',
+            'column' => 'sampled_at',
+        ],
     ];
 
     public function run(bool $dryRun = false): array
