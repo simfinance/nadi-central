@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Nadi\AgentEnrollmentController;
 use App\Http\Controllers\Api\V1\Nadi\AgentActivationController;
 use App\Http\Controllers\Api\V1\Nadi\AgentTelemetryController;
 use App\Http\Controllers\Api\V1\Nadi\ReleaseManifestController;
+use App\Http\Controllers\PrometheusMetricsController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +18,11 @@ use Illuminate\Support\Facades\Route;
 | API endpoints for NADI Agent communication.
 |
 */
+
+Route::get(
+    '/internal/prometheus/metrics',
+    PrometheusMetricsController::class
+)->name('api.internal.prometheus.metrics');
 
 Route::prefix('v1/nadi')->group(function ()
 {
@@ -30,7 +36,7 @@ Route::prefix('v1/nadi')->group(function ()
         '/releases/manifest',
         [ReleaseManifestController::class, 'show']
     )->name('api.nadi.releases.manifest');
-    
+
     /*
     |--------------------------------------------------------------------------
     | Agent Enrollment
