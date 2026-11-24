@@ -46,7 +46,7 @@ QRCode.js is currently loaded from cdnjs; the QR payload itself is generated in 
 ## Abuse and replay protection
 
 - Login password attempts retain the existing five-attempt username/IP limiter.
-- MFA challenge attempts are limited to five per user/IP within five minutes.
+- MFA challenge and enrollment-confirmation attempts are each limited to five per user/IP within five minutes.
 - Accepted TOTP time steps are protected by a row lock and persisted replay counter.
 - Pending MFA login state expires after five minutes.
 - MFA success, failure, enrollment, and recovery-code use are written to `user_mfa_audits`.
