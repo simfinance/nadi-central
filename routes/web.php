@@ -93,6 +93,11 @@ Route::middleware('auth')->group(function () {
             Route::get('/notifications', [NotificationDeliveryController::class, 'index'])->name('notifications');
             Route::post('/notifications', [NotificationDeliveryController::class, 'store'])->name('notifications.store');
 
+            Route::get('/notification-templates', [NotificationTemplateController::class, 'index'])->name('notification-templates');
+            Route::post('/notification-templates', [NotificationTemplateController::class, 'store'])->name('notification-templates.store');
+            Route::put('/notification-templates/{templateId}', [NotificationTemplateController::class, 'update'])->whereNumber('templateId')->name('notification-templates.update');
+            Route::delete('/notification-templates/{templateId}', [NotificationTemplateController::class, 'destroy'])->whereNumber('templateId')->name('notification-templates.destroy');
+
             // Ringkasan seluruh server & aplikasi
             Route::get('/telemetry', [TelemetryController::class, 'index'])
                 ->name('telemetry');
