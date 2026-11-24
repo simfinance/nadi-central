@@ -1,13 +1,13 @@
 <?php
 
-use Illuminate\\Foundation\\Application;
-use Illuminate\\Foundation\\Configuration\\Exceptions;
-use Illuminate\\Foundation\\Configuration\\Middleware;
-use Illuminate\\Http\\Middleware\\TrustProxies;
-use Illuminate\\Http\\Request;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\TrustProxies;
+use Illuminate\Http\Request;
 
-use App\\Http\\Middleware\\NadiAgentAuthentication;
-use App\\Http\\Middleware\\EnsureMfaEnabled;
+use App\Http\Middleware\NadiAgentAuthentication;
+use App\Http\Middleware\EnsureMfaEnabled;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
