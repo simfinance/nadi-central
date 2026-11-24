@@ -135,6 +135,7 @@ class MfaController extends Controller
         {
             $secret = $totp->generateSecret();
             $request->session()->put('mfa.enrollment_secret', Crypt::encryptString($secret));
+            $this->audit($request, $user, 'enrollment_started');
         }
         else
         {
@@ -162,15 +163,29 @@ class MfaController extends Controller
             return redirect()->route('login');
         }
 
+        $key = 'mfa-enroll:' . $user->id . '|' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($key, 5))
+        {
+            return back()->withErrors([
+                'code' => 'Terlalu banyak percobaan aktivasi. Silakan tunggu sebelum mencoba kembali.',
+            ]);
+        }
+
         $secret = Crypt::decryptString($encryptedSecret);
         $step = $totp->verify($secret, $request->input('code'));
 
         if ($step === null)
         {
+            RateLimiter::hit($key, 300);
+            $this->audit($request, $user, 'enrollment_failed');
+
             return back()->withErrors([
                 'code' => 'Kode tidak valid. Periksa waktu perangkat dan coba kembali.',
             ]);
         }
+
+        RateLimiter::clear($key);
 
         $codes = [];
 
