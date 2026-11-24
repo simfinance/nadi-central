@@ -49,6 +49,23 @@
             </label>
 
             <label class="notification-field">
+                <span>Use email template</span>
+                <select id="notificationTemplate">
+                    <option value="">Compose without a template</option>
+                    @foreach ($templates as $template)
+                        <option
+                            value="{{ $template->id }}"
+                            data-subject="{{ $template->subject }}"
+                            data-body="{{ $template->body }}"
+                        >
+                            {{ $template->name }}
+                        </option>
+                    @endforeach
+                </select>
+                <small>Selecting a template copies its subject and body into the fields below.</small>
+            </label>
+
+            <label class="notification-field">
                 <span>Subject</span>
                 <input
                     type="text"
@@ -203,6 +220,17 @@
     {
         resize: vertical;
         line-height: 1.7;
+    }
+
+    .notification-field select
+    {
+        width: 100%;
+        padding: 12px 13px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface-2);
+        color: var(--ink);
+        font: 500 12px var(--font);
     }
 
     .notification-field small
@@ -378,4 +406,29 @@
         }
     }
 </style>
+
+<script>
+    (function () {
+        var templateSelect = document.getElementById('notificationTemplate');
+        var subjectInput = document.querySelector('input[name="subject"]');
+        var bodyInput = document.querySelector('textarea[name="body"]');
+
+        if (!templateSelect || !subjectInput || !bodyInput)
+        {
+            return;
+        }
+
+        templateSelect.addEventListener('change', function () {
+            var selectedOption = templateSelect.options[templateSelect.selectedIndex];
+
+            if (!selectedOption.value)
+            {
+                return;
+            }
+
+            subjectInput.value = selectedOption.dataset.subject || '';
+            bodyInput.value = selectedOption.dataset.body || '';
+        });
+    })();
+</script>
 @endsection
