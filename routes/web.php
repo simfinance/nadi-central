@@ -38,7 +38,14 @@ Route::middleware('guest')->group(function () {
         ->name('login.store');
 });
 
-Route::middleware('auth')->group(function () {
+Route::get('/mfa/setup', [MfaController::class, 'setup'])->name('mfa.setup');
+Route::post('/mfa/setup', [MfaController::class, 'confirmSetup'])->name('mfa.setup.confirm');
+Route::get('/mfa/challenge', [MfaController::class, 'challenge'])->name('mfa.challenge');
+Route::post('/mfa/challenge', [MfaController::class, 'verify'])->name('mfa.challenge.verify');
+Route::get('/mfa/recovery', [MfaController::class, 'recovery'])->name('mfa.recovery');
+Route::post('/mfa/recovery/continue', [MfaController::class, 'finishRecovery'])->name('mfa.recovery.finish');
+
+Route::middleware(['auth', 'mfa'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/central-health', [CentralHealthController::class, 'index'])
