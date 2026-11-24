@@ -58,6 +58,11 @@ class LoginController extends Controller
         RateLimiter::clear($throttleKey);
 
         Auth::logout();
+        $request->session()->forget([
+            'mfa.pending_user_id',
+            'mfa.pending_at',
+            'mfa.enrollment_secret',
+        ]);
         $request->session()->regenerate();
 
         $request->session()->put([
