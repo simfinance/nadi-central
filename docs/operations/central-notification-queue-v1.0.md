@@ -25,7 +25,34 @@ Open Management → Email Templates.
 
 Authenticated Central operators can create, edit, activate/deactivate, and delete templates. Each template stores a unique name, subject, plain-text body, and active flag.
 
-Active templates are loaded into the Notifications composer. Selecting one copies its subject and body into the compose fields; the operator can edit either field before queueing. Template content is not dynamically rendered and no placeholder substitution is performed in this version. Changes to a template do not modify notifications that were already queued.
+Active templates are loaded into the Notifications composer. Selecting one copies its subject and body into the compose fields; the operator can edit either field before queueing. Changes to a template do not modify notifications that were already queued.
+
+### Supported placeholders
+
+Placeholders use double curly braces and can be placed in the subject or plain-text body. They are resolved by Central when the notification is submitted, before the encrypted outbox record is created.
+
+Automatic placeholders:
+
+| Placeholder | Value |
+|---|---|
+| `{{recipient_email}}` | Validated recipient email address |
+| `{{current_date}}` | Central application date in `d-m-Y` format |
+| `{{current_datetime}}` | Central application date and time in `d-m-Y H:i:s` format |
+
+Operator-supplied placeholders:
+
+| Placeholder | Input on Notifications |
+|---|---|
+| `{{application_name}}` | Application name; defaults to `APP_NAME` |
+| `{{server_name}}` | Server name |
+| `{{severity}}` | Severity label, for example Critical, Warning, or Info |
+| `{{event_name}}` | Event or notification title |
+| `{{event_time}}` | Event time as entered by the operator |
+| `{{message}}` | Additional message or event details |
+
+The operator fills the values used by the selected template in the Notifications composer. Unused fields can remain blank. Unknown placeholder names are rejected before the notification is queued so misspelled tokens are not silently sent to recipients. Rendered subject and body lengths are checked again after substitution.
+
+Placeholder values are inserted as plain text. No HTML rendering, expression evaluation, database lookup, or Agent event integration is performed. These placeholders are manual inputs for Central-originated notifications; automatic values from Agent telemetry or event payloads remain out of scope until Agent work is complete.
 
 The template management routes use the existing authenticated Central web route group.
 
