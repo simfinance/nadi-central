@@ -1,28 +1,24 @@
 <?php
 
-namespace App\Http\Controllers\Auth;
+namespace App\\Http\\Controllers\\Auth;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
-use Illuminate\View\View;
+use App\\Http\\Controllers\\Controller;
+use App\\Models\\User;
+use Illuminate\\Http\\RedirectResponse;
+use Illuminate\\Http\\Request;
+use Illuminate\\Support\\Facades\\Auth;
+use Illuminate\\Support\\Facades\\Hash;
+use Illuminate\\Support\\Facades\\RateLimiter;
+use Illuminate\\Support\\Str;
+use Illuminate\\View\\View;
 
 class LoginController extends Controller
 {
-    /**
-     * Show the login form.
-     */
     public function create(): View
     {
         return view('auth.login');
     }
 
-    /**
-     * Authenticate user using username and password.
-     */
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
@@ -31,7 +27,6 @@ class LoginController extends Controller
         ]);
 
         $username = strtolower(trim($request->input('username')));
-
         $throttleKey = Str::lower($username) . '|' . $request->ip();
 
         if (RateLimiter::tooManyAttempts($throttleKey, 5))
@@ -45,10 +40,11 @@ class LoginController extends Controller
                 ]);
         }
 
-        if (! Auth::attempt([
-            'username' => $username,
-            'password' => $request->input('password'),
-        ]))
+        $user = User::query()
+            ->where('username', $username)
+            ->first();
+
+        if (! $user || ! Hash::check($request->input('password'), $user->password))
         {
             RateLimiter::hit($throttleKey, 60);
 
@@ -61,20 +57,27 @@ class LoginController extends Controller
 
         RateLimiter::clear($throttleKey);
 
+        Auth::logout();
         $request->session()->regenerate();
 
-        return redirect()->intended('/dashboard');
+        $request->session()->put([
+            'mfa.pending_user_id' => $user->id,
+            'mfa.pending_at' => now()->timestamp,
+        ]);
+
+        if (! $user->totp_secret || ! $user->totp_enabled_at)
+        {
+            return redirect()->route('mfa.setup');
+        }
+
+        return redirect()->route('mfa.challenge');
     }
 
-    /**
-     * Logout authenticated user.
-     */
     public function destroy(Request $request): RedirectResponse
     {
         Auth::logout();
 
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
