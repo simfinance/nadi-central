@@ -77,6 +77,11 @@ class CentralHealthController extends Controller
     /*  Snapshot                                                           */
     /* ------------------------------------------------------------------ */
 
+    public function collectSnapshot(): array
+    {
+        return $this->snapshot();
+    }
+
     private function snapshot(): array
     {
         $a = $this->sampleRaw();
