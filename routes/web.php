@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CentralHealthController;
 use App\Http\Controllers\TelemetryController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\MfaController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\EnrollmentTokenController;
