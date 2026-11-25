@@ -69,6 +69,9 @@ Route::middleware(['auth', 'mfa'])->group(function () {
             Route::get('/infrastructure', [PrometheusMonitoringController::class, 'index'])
                 ->name('infrastructure');
 
+            Route::get('/infrastructure/data', [TelemetryController::class, 'infrastructureData'])
+                ->name('infrastructure.data');
+
             Route::get('/grafana', [GrafanaDashboardController::class, 'index'])
                 ->name('grafana');
 
@@ -143,8 +146,6 @@ Route::middleware(['auth', 'mfa'])->group(function () {
             Route::get('/telemetry/overview', [TelemetryController::class, 'overview'])
                 ->name('telemetry.overview');
 
-            Route::get('/monitoring/infrastructure/data', [TelemetryController::class, 'infrastructureData'])
-                ->name('infrastructure.data');
 
             // Detail per server
             Route::get('/telemetry/data', [TelemetryController::class, 'data'])
