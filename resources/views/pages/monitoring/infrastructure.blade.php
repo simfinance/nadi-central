@@ -2732,7 +2732,7 @@ document.addEventListener('DOMContentLoaded', function ()
             const live = upEntry.series.filter(item => lastPoint(item).value >= 1).length;
             const ratio = live / upEntry.series.length;
             const stale = ageEntry && ageEntry.ok
-                ? ageEntry.series.filter(item => lastPoint(item).value > 300).length
+                ? ageEntry.series.filter(item => lastPoint(item).value > 120).length
                 : 0;
 
             score -= (1 - ratio) * 10 + Math.min(5, stale);
@@ -2935,11 +2935,11 @@ document.addEventListener('DOMContentLoaded', function ()
 
         if (age && age.ok)
         {
-            const stale = age.series.filter(item => lastPoint(item).value > 300);
+            const stale = age.series.filter(item => lastPoint(item).value > 120);
 
             if (stale.length)
             {
-                add('warn', stale.length + ' telemetry stream tidak segar', 'Umur sampel terakhir > 5 menit: ' + stale.slice(0, 3).map(item => item.label + ' (' + duration(lastPoint(item).value) + ')').join(' · '));
+                add('warn', stale.length + ' telemetry stream tidak segar', 'Umur sampel terakhir > 2 menit: ' + stale.slice(0, 3).map(item => item.label + ' (' + duration(lastPoint(item).value) + ')').join(' · '));
             }
         }
 
@@ -3070,7 +3070,7 @@ document.addEventListener('DOMContentLoaded', function ()
             const ageNow = row.age ? lastPoint(row.age).value : null;
             const ageStats = row.age ? statsOf(row.age.values) : null;
             const uptime = row.up ? (row.up.values.filter(point => point.value >= 1).length / row.up.values.length) * 100 : null;
-            const stale = ageNow !== null && ageNow > 300;
+            const stale = ageNow !== null && ageNow > 120 && ageNow <= 300;
             let tone = 'ok';
             let text = 'Live';
 
@@ -3207,7 +3207,7 @@ document.addEventListener('DOMContentLoaded', function ()
 
             setChart(id, group.series, {
                 unit: group.metric.unit,
-                mode: 'avg',
+                mode: id === 'chart-network' ? 'sum' : 'avg',
                 step: group.metric.unit === 'boolean',
                 thresholds: thresholds[key] || null,
                 message: group.errors.length && !group.series.length ? group.errors[0] : ''
