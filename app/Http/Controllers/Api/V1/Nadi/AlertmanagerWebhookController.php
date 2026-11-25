@@ -1,15 +1,15 @@
 <?php
 
-namespace App\\Http\\Controllers\\Api\\V1\\Nadi;
+namespace App\Http\Controllers\Api\V1\Nadi;
 
-use App\\Http\\Controllers\\Controller;
-use Illuminate\\Http\\JsonResponse;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Carbon;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Validator;
-use Illuminate\\Support\\Str;
-use Symfony\\Component\\HttpFoundation\\Response;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class AlertmanagerWebhookController extends Controller
