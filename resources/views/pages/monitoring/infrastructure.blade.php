@@ -1902,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', function ()
             let label = Object.entries(item.metric || {})
                 .filter(function ([key])
                 {
-                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability'].includes(key);
+                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability', 'server_state'].includes(key);
                 })
                 .map(function ([key, value])
                 {
@@ -1919,6 +1919,9 @@ document.addEventListener('DOMContentLoaded', function ()
                 label: label || 'Value',
                 availability: Number.isFinite(Number(item.metric && item.metric.availability))
                     ? Number(item.metric.availability)
+                    : null,
+                serverState: item.metric && item.metric.server_state
+                    ? item.metric.server_state
                     : null,
                 values: (item.values || []).map(function (point)
                 {
@@ -2542,7 +2545,8 @@ document.addEventListener('DOMContentLoaded', function ()
         kpis.forEach(function (kpi)
         {
             const entry = store[kpi.metric];
-            const series = entry && entry.ok ? entry.series : [];
+            const allSeries = entry && entry.ok ? entry.series : [];
+            const series = allSeries.filter(item => item.serverState === null || item.serverState === 'live');
 
             if (!series.length)
             {
