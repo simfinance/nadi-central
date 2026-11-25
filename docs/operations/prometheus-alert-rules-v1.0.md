@@ -70,9 +70,13 @@ The `nadi_prometheus_exporter_up` metric indicates successful exporter rendering
 
 ## Alertmanager delivery
 
-This rule file creates Prometheus alert evaluations and forwards firing/resolved notifications to the local Alertmanager endpoint. It does not configure the final notification receiver.
+Prometheus forwards firing and resolved alert notifications to the local Alertmanager endpoint. The repository includes a matching Alertmanager receiver example at:
 
-Configure the Alertmanager receiver and route separately after the Central webhook endpoint, authentication token, and notification policy have been reviewed. Until a receiver is configured, alerts may be visible in Alertmanager but will not be delivered to an external notification destination.
+`docs/operations/alertmanager/alertmanager.yml.example`
+
+That receiver forwards alerts to the authenticated NADI Central webhook. Follow `docs/operations/alertmanager-webhook-v1.0.md` to configure the dedicated bearer token and receiver safely.
+
+The Central webhook persists alert metadata and history. It does not send email or Telegram notifications and does not perform remediation. External notification routing remains a separate policy decision.
 
 ## Applying the configuration
 
@@ -83,6 +87,7 @@ Configure the Alertmanager receiver and route separately after the Central webho
 5. Validate the full Prometheus configuration with `promtool check config /etc/prometheus/prometheus.yml`.
 6. Reload or restart Prometheus using the site's approved change procedure.
 7. Confirm the rule groups are loaded in Prometheus and that Alertmanager appears as a configured target.
-8. Confirm test alerts reach Alertmanager before enabling external notification routes.
+8. Configure the Central webhook receiver following the webhook operations guide.
+9. Confirm a controlled test alert reaches Central Alert Management.
 
 These are deployment instructions only. No production configuration has been changed by this repository update.
