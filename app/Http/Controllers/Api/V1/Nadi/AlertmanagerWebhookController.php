@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -138,6 +139,11 @@ class AlertmanagerWebhookController extends Controller
                     'string',
                     'max:255',
                 ],
+                'alerts.*.labels.severity' => [
+                    'nullable',
+                    'string',
+                    'max:100',
+                ],
                 'alerts.*.labels.*' => [
                     'string',
                     'max:2048',
@@ -149,6 +155,11 @@ class AlertmanagerWebhookController extends Controller
                 'alerts.*.annotations.*' => [
                     'string',
                     'max:8192',
+                ],
+                'alerts.*.annotations.summary' => [
+                    'nullable',
+                    'string',
+                    'max:1000',
                 ],
                 'alerts.*.startsAt' => [
                     'required',
@@ -255,6 +266,23 @@ class AlertmanagerWebhookController extends Controller
                         continue;
                     }
 
+                    $existingAlert = DB::table('nadi_alerts')
+                        ->where('fingerprint', $alert['fingerprint'])
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (
+                        $existingAlert
+                        && $existingAlert->status === 'resolved'
+                        && $alert['status'] === 'firing'
+                        && $existingAlert->starts_at === $startsAt
+                    )
+                    {
+                        $acceptedCount++;
+
+                        continue;
+                    }
+
                     $currentAlert = [
                         'status' => $alert['status'],
                         'alertname' => $labels['alertname'],
@@ -312,7 +340,9 @@ class AlertmanagerWebhookController extends Controller
         }
         catch (Throwable $exception)
         {
-            report($exception);
+            Log::error('Alertmanager webhook processing failed.', [
+                'exception_class' => get_class($exception),
+            ]);
 
             return response()->json([
                 'success' => false,
