@@ -1424,7 +1424,7 @@
         <div class="infra-panel-header">
             <div>
                 <div class="infra-panel-title">Telemetry Freshness</div>
-                <div class="infra-panel-description">Age and availability of the latest telemetry stream samples</div>
+                <div class="infra-panel-description">Current age and state from the same stream receipt timestamps as Telemetry</div>
             </div>
         </div>
 
@@ -1453,7 +1453,7 @@
                         <th>State</th>
                         <th>Age now</th>
                         <th>Max age</th>
-                        <th>Uptime</th>
+                        <th>Availability now</th>
                         <th>Trend</th>
                     </tr>
                 </thead>
