@@ -8,6 +8,7 @@ use App\Http\Controllers\ServerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CentralHealthController;
 use App\Http\Controllers\TelemetryController;
+use App\Http\Controllers\PrometheusQueryController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\MfaController;
 use App\Http\Controllers\ApplicationController;
@@ -59,6 +60,20 @@ Route::middleware(['auth', 'mfa'])->group(function () {
         ->name('monitoring.')
         ->group(function () {
             Route::get('/servers', [ServerController::class, 'index'])->name('servers');
+
+            Route::prefix('prometheus')
+                ->name('prometheus.')
+                ->group(function () {
+                    Route::get('/overview', [PrometheusQueryController::class, 'overview'])
+                        ->name('overview');
+
+                    Route::get('/metrics', [PrometheusQueryController::class, 'metrics'])
+                        ->name('metrics');
+
+                    Route::get('/query/{metric}', [PrometheusQueryController::class, 'query'])
+                        ->where('metric', '[a-z0-9_]+')
+                        ->name('query');
+                });
 
             Route::get('/applications', [ApplicationController::class, 'index'])->name('applications');
             Route::post('/applications/{applicationId}/resume',[ApplicationLifecycleController::class, 'resume'])->name('applications.resume');
