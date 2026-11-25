@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CentralHealthController;
 use App\Http\Controllers\TelemetryController;
 use App\Http\Controllers\PrometheusQueryController;
+use App\Http\Controllers\PrometheusMonitoringController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\MfaController;
 use App\Http\Controllers\ApplicationController;
@@ -60,6 +61,9 @@ Route::middleware(['auth', 'mfa'])->group(function () {
         ->name('monitoring.')
         ->group(function () {
             Route::get('/servers', [ServerController::class, 'index'])->name('servers');
+
+            Route::get('/infrastructure', [PrometheusMonitoringController::class, 'index'])
+                ->name('infrastructure');
 
             Route::prefix('prometheus')
                 ->name('prometheus.')
