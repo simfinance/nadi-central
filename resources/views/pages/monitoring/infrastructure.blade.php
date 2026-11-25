@@ -200,6 +200,12 @@
         height: 190px;
     }
 
+    .infra-empty[hidden],
+    .infra-chart[hidden]
+    {
+        display: none;
+    }
+
     .infra-empty
     {
         display: grid;
@@ -670,7 +676,8 @@ document.addEventListener('DOMContentLoaded', function ()
         context.clearRect(0, 0, width, height);
 
         const panel = canvas.closest('.infra-panel');
-        const empty = panel.querySelector('.infra-empty');
+        const empty = canvas.parentElement.querySelector('.infra-empty')
+            || panel.querySelector('.infra-empty');
 
         if (!series.length)
         {
