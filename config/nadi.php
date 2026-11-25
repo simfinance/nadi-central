@@ -47,6 +47,13 @@ return [
         ),
     ],
 
+    'grafana' => [
+        'internal_url' => env('NADI_GRAFANA_INTERNAL_URL', 'http://127.0.0.1:3000'),
+        'public_path' => env('NADI_GRAFANA_PUBLIC_PATH', '/grafana/'),
+        'dashboard_uid' => env('NADI_GRAFANA_DASHBOARD_UID', ''),
+        'org_id' => (int) env('NADI_GRAFANA_ORG_ID', 1),
+    ],
+
     'prometheus' => [
         'metrics_token' => env(
             'NADI_PROMETHEUS_METRICS_TOKEN',
