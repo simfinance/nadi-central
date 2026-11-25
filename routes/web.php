@@ -10,6 +10,7 @@ use App\Http\Controllers\CentralHealthController;
 use App\Http\Controllers\TelemetryController;
 use App\Http\Controllers\PrometheusQueryController;
 use App\Http\Controllers\PrometheusMonitoringController;
+use App\Http\Controllers\GrafanaDashboardController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\MfaController;
 use App\Http\Controllers\ApplicationController;
@@ -46,6 +47,9 @@ Route::post('/mfa/setup', [MfaController::class, 'confirmSetup'])->name('mfa.set
 Route::get('/mfa/challenge', [MfaController::class, 'challenge'])->name('mfa.challenge');
 Route::post('/mfa/challenge', [MfaController::class, 'verify'])->name('mfa.challenge.verify');
 Route::get('/mfa/recovery', [MfaController::class, 'recovery'])->name('mfa.recovery');
+
+Route::get('/internal/grafana/auth', [GrafanaDashboardController::class, 'authenticateProxy'])
+    ->name('internal.grafana.auth');
 Route::post('/mfa/recovery/continue', [MfaController::class, 'finishRecovery'])->name('mfa.recovery.finish');
 
 Route::middleware(['auth', 'mfa'])->group(function () {
@@ -64,6 +68,9 @@ Route::middleware(['auth', 'mfa'])->group(function () {
 
             Route::get('/infrastructure', [PrometheusMonitoringController::class, 'index'])
                 ->name('infrastructure');
+
+            Route::get('/grafana', [GrafanaDashboardController::class, 'index'])
+                ->name('grafana');
 
             Route::prefix('prometheus')
                 ->name('prometheus.')
