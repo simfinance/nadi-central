@@ -143,6 +143,9 @@ Route::middleware(['auth', 'mfa'])->group(function () {
             Route::get('/telemetry/overview', [TelemetryController::class, 'overview'])
                 ->name('telemetry.overview');
 
+            Route::get('/monitoring/infrastructure/data', [TelemetryController::class, 'infrastructureData'])
+                ->name('infrastructure.data');
+
             // Detail per server
             Route::get('/telemetry/data', [TelemetryController::class, 'data'])
                 ->name('telemetry.data');
