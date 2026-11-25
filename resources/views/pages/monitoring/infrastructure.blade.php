@@ -1902,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', function ()
             let label = Object.entries(item.metric || {})
                 .filter(function ([key])
                 {
-                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability', 'server_state'].includes(key);
+                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability', 'server_state', 'current_cpu', 'current_memory', 'current_disk'].includes(key);
                 })
                 .map(function ([key, value])
                 {
@@ -1922,6 +1922,9 @@ document.addEventListener('DOMContentLoaded', function ()
                     : null,
                 serverState: item.metric && item.metric.server_state
                     ? item.metric.server_state
+                    : null,
+                currentValue: Number.isFinite(Number(item.metric && item.metric.current_value))
+                    ? Number(item.metric.current_value)
                     : null,
                 values: (item.values || []).map(function (point)
                 {
@@ -2560,7 +2563,12 @@ document.addEventListener('DOMContentLoaded', function ()
 
             const points = aggregate(series, kpi.mode);
             const stats = statsOf(points);
-            const latest = latestOf(series, kpi.mode);
+            const currentValues = series
+                .map(item => item.currentValue)
+                .filter(value => Number.isFinite(value));
+            const latest = currentValues.length
+                ? currentValues.reduce((sum, value) => sum + value, 0) / currentValues.length
+                : latestOf(series, kpi.mode);
             const trend = trendOf(points);
             const isPercent = kpi.unit === 'percent';
             const color = kpi.limits ? ({ ok: '#12a150', warn: '#d97706', bad: '#dc4c64' }[toneFor(latest, kpi.limits)] || palette[0]) : palette[0];
