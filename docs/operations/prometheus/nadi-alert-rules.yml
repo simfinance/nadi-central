@@ -1,0 +1,123 @@
+groups:
+    - name: nadi-central-health
+      interval: 30s
+      rules:
+          - alert: NadiCentralScrapeTargetDown
+            expr: up{job="nadi-central"} == 0
+            for: 2m
+            labels:
+                severity: critical
+                component: central
+            annotations:
+                summary: "NADI Central metrics endpoint is unreachable"
+                description: "Prometheus has failed to scrape the NADI Central metrics endpoint for more than 2 minutes."
+
+          - alert: NadiTelemetryStreamStale
+            expr: nadi_telemetry_stream_stale == 1
+            for: 2m
+            labels:
+                severity: warning
+                component: telemetry
+            annotations:
+                summary: "NADI telemetry stream is stale"
+                description: "Telemetry stream {{ $labels.stream }} for {{ $labels.hostname }} has not received fresh data within the configured stale threshold."
+
+          - alert: NadiTelemetryStreamOffline
+            expr: nadi_telemetry_stream_up == 0
+            for: 2m
+            labels:
+                severity: critical
+                component: telemetry
+            annotations:
+                summary: "NADI telemetry stream is offline"
+                description: "Telemetry stream {{ $labels.stream }} for {{ $labels.hostname }} has exceeded the configured offline threshold."
+
+          - alert: NadiServerCpuUsageHigh
+            expr: nadi_server_cpu_usage_percent > 85
+            for: 10m
+            labels:
+                severity: warning
+                component: server
+            annotations:
+                summary: "Server CPU usage is high"
+                description: "CPU usage on {{ $labels.hostname }} has remained above 85% for 10 minutes."
+
+          - alert: NadiServerMemoryUsageHigh
+            expr: nadi_server_memory_usage_percent > 90
+            for: 10m
+            labels:
+                severity: warning
+                component: server
+            annotations:
+                summary: "Server memory usage is high"
+                description: "Memory usage on {{ $labels.hostname }} has remained above 90% for 10 minutes."
+
+          - alert: NadiServerRootDiskUsageHigh
+            expr: nadi_server_disk_usage_percent{is_root="true"} > 85
+            for: 10m
+            labels:
+                severity: warning
+                component: storage
+            annotations:
+                summary: "Server root disk usage is high"
+                description: "Root filesystem usage on {{ $labels.hostname }} has remained above 85% for 10 minutes."
+
+          - alert: NadiServerRootDiskUsageCritical
+            expr: nadi_server_disk_usage_percent{is_root="true"} > 95
+            for: 5m
+            labels:
+                severity: critical
+                component: storage
+            annotations:
+                summary: "Server root disk usage is critical"
+                description: "Root filesystem usage on {{ $labels.hostname }} has remained above 95% for 5 minutes."
+
+          - alert: NadiServerNginxProcessDown
+            expr: nadi_server_nginx_process_up == 0
+            for: 2m
+            labels:
+                severity: critical
+                component: web
+            annotations:
+                summary: "Nginx process is not running"
+                description: "NADI Agent reports that the Nginx process on {{ $labels.hostname }} is not running."
+
+          - alert: NadiApplicationProbeDown
+            expr: nadi_application_probe_up == 0
+            for: 5m
+            labels:
+                severity: critical
+                component: application
+            annotations:
+                summary: "Application health probe is failing"
+                description: "Probe {{ $labels.probe }} for application {{ $labels.application_name }} on {{ $labels.hostname }} has been unhealthy for 5 minutes."
+
+          - alert: NadiApplicationProbeLatencyHigh
+            expr: nadi_application_probe_latency_milliseconds > 2000
+            for: 10m
+            labels:
+                severity: warning
+                component: application
+            annotations:
+                summary: "Application probe latency is high"
+                description: "Probe {{ $labels.probe }} for application {{ $labels.application_name }} on {{ $labels.hostname }} has remained above 2000 ms for 10 minutes."
+
+          - alert: NadiServerNetworkErrorsDetected
+            expr: increase(nadi_server_network_errors_total[5m]) > 0
+            for: 1m
+            labels:
+                severity: warning
+                component: network
+            annotations:
+                summary: "Network errors detected"
+                description: "NADI Agent reported new network errors on {{ $labels.hostname }} interface {{ $labels.interface }}."
+
+          - alert: NadiServerNetworkPacketsDropped
+            expr: increase(nadi_server_network_dropped_total[5m]) > 0
+            for: 1m
+            labels:
+                severity: warning
+                component: network
+            annotations:
+                summary: "Network packets are being dropped"
+                description: "NADI Agent reported packet drops on {{ $labels.hostname }} interface {{ $labels.interface }}."
