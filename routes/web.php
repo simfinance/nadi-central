@@ -24,6 +24,7 @@ use App\Http\Controllers\TelemetryRetentionPolicyController;
 use App\Http\Controllers\NotificationMailSettingsController;
 use App\Http\Controllers\NotificationDeliveryController;
 use App\Http\Controllers\NotificationTemplateController;
+use App\Http\Controllers\AlertManagementController;
 
 Route::get('/', function () {
     if (Auth::check())
@@ -131,7 +132,10 @@ Route::middleware(['auth', 'mfa'])->group(function () {
             Route::put('/notification-mail', [NotificationMailSettingsController::class, 'update'])->name('notification-mail.update');
             Route::post('/notification-mail/test', [NotificationMailSettingsController::class, 'sendTest'])->name('notification-mail.test');
 
-            Route::get('/alerts', [AlertManagementController::class, 'index'])->name('alerts');\n            Route::get('/alerts/{fingerprint}', [AlertManagementController::class, 'show'])->name('alerts.show');\n\n            Route::get('/notifications', [NotificationDeliveryController::class, 'index'])->name('notifications');
+            Route::get('/alerts', [AlertManagementController::class, 'index'])->name('alerts');
+            Route::get('/alerts/{fingerprint}', [AlertManagementController::class, 'show'])->name('alerts.show');
+
+            Route::get('/notifications', [NotificationDeliveryController::class, 'index'])->name('notifications');
             Route::post('/notifications', [NotificationDeliveryController::class, 'store'])->name('notifications.store');
 
             Route::get('/notification-templates', [NotificationTemplateController::class, 'index'])->name('notification-templates');
