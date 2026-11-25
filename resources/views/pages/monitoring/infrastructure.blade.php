@@ -1571,6 +1571,39 @@ document.addEventListener('DOMContentLoaded', function ()
             .replace(/"/g, '&quot;');
     }
 
+    async function getJson(url, signal)
+    {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            signal: signal
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+
+        if (!contentType.includes('application/json'))
+        {
+            throw new Error(
+                response.status === 401 || response.redirected
+                    ? 'Session login berakhir. Silakan login ulang.'
+                    : 'Server tidak mengembalikan respons JSON.'
+            );
+        }
+
+        const payload = await response.json();
+
+        if (!response.ok)
+        {
+            throw new Error(payload.message || 'Request gagal dengan HTTP ' + response.status + '.');
+        }
+
+        return payload;
+    }
+
     function formatValue(value, unit)
     {
         if (!Number.isFinite(value))
