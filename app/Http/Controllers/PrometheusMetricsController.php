@@ -341,6 +341,7 @@ class PrometheusMetricsController extends Controller
                 'streams.application_id',
                 'streams.stream_name',
                 'streams.last_received_at',
+                'streams.last_observed_at',
                 'agents.server_id',
                 'servers.hostname',
                 'applications.application_name',
@@ -366,9 +367,12 @@ class PrometheusMetricsController extends Controller
         );
 
         $lastReceivedTimestamp = $lastReceivedAt->getTimestamp();
+        $lastObservedAt = $stream->last_observed_at
+            ? CarbonImmutable::parse($stream->last_observed_at, 'UTC')
+            : $lastReceivedAt;
         $age = max(
             0,
-            CarbonImmutable::now('UTC')->getTimestamp() - $lastReceivedTimestamp
+            CarbonImmutable::now('UTC')->getTimestamp() - $lastObservedAt->getTimestamp()
         );
 
         $this->sample(
