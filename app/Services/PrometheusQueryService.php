@@ -291,15 +291,15 @@ class PrometheusQueryService
 
         $expression = $metric['metric'] . $selector;
 
+        if (($metric['rate'] ?? false) === true)
+        {
+            $expression = 'rate(' . $expression . '[5m])';
+        }
+
         if (str_starts_with($key, 'server_'))
         {
             $expression = '(' . $expression . ') and on(agent_id) '
                 . '(nadi_telemetry_stream_up{stream="server_metrics"} == 1)';
-        }
-
-        if (($metric['rate'] ?? false) === true)
-        {
-            return 'rate(' . $expression . '[5m])';
         }
 
         return $expression;
