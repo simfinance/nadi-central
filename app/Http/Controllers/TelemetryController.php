@@ -273,7 +273,8 @@ class TelemetryController extends Controller
         object $agent,
         int $window,
         int $bucket
-    ): array {
+    ): array
+    {
         $streams = DB::table('nadi_telemetry_streams as st')
             ->leftJoin('nadi_applications as ap', 'ap.id', '=', 'st.application_id')
             ->where('st.agent_id', $agent->id)
