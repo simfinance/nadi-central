@@ -203,13 +203,13 @@ class TelemetryController extends Controller
                         [$timestamp],
                         [$age]
                     );
-
-                    $metrics['up'][] = $this->seriesResult(
-                        $streamLabels,
-                        [$timestamp],
-                        [$age <= self::OFFLINE_AFTER ? 1 : 0]
-                    );
                 }
+
+                $metrics['up'][] = $this->seriesResult(
+                    $streamLabels,
+                    [$timestamp],
+                    [$age !== null && $age <= self::OFFLINE_AFTER ? 1 : 0]
+                );
             }
 
             foreach ($payload['applications'] as $application)
