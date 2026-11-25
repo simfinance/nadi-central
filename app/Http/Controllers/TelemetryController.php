@@ -251,6 +251,7 @@ class TelemetryController extends Controller
                         'availability' => $details['availability'] !== null
                             ? (string) $details['availability']
                             : '',
+                        'current_up' => in_array($details['status'], self::PROBE_OK, true) ? '1' : '0',
                     ];
 
                     $metrics['latency'][] = $this->seriesResult(
