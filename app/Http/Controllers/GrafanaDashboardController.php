@@ -73,6 +73,8 @@ class GrafanaDashboardController extends Controller
 
         return response()
             ->json(['status' => 'authenticated'])
-            ->header('X-NADI-Grafana-User', 'nadi-' . $user->getAuthIdentifier());
+            ->header('X-NADI-Grafana-User', 'nadi-' . $user->getAuthIdentifier())
+            ->header('Cache-Control', 'no-store, private')
+            ->header('Vary', 'Cookie');
     }
 }
