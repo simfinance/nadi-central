@@ -151,6 +151,57 @@ class TelemetryController extends Controller
                 }
             }
 
+            foreach ($payload['pipeline']['streams'] as $stream)
+            {
+                $streamLabels = [
+                    'hostname' => (string) $agent->hostname,
+                    'server_id' => (string) $agent->server_id,
+                    'agent_id' => (string) $agent->id,
+                    'stream' => (string) $stream['name'],
+                ];
+
+                if ($stream['name'] === 'application_metrics')
+                {
+                    $application = collect($payload['applications'])
+                        ->firstWhere('stream_id', $stream['id']);
+
+                    if (!$application)
+                    {
+                        continue;
+                    }
+
+                    if (
+                        !empty($validated['application_id'])
+                        && $application['application_id'] !== $validated['application_id']
+                    )
+                    {
+                        continue;
+                    }
+
+                    $streamLabels['application_id'] = (string) $application['application_id'];
+                    $streamLabels['application_name'] = (string) $application['name'];
+                    $streamLabels['environment'] = (string) ($application['environment'] ?? '');
+                }
+
+                $age = $stream['age_seconds'];
+                $timestamp = $base['generated_at'];
+
+                if ($age !== null)
+                {
+                    $metrics['age'][] = $this->seriesResult(
+                        $streamLabels,
+                        [$timestamp],
+                        [$age]
+                    );
+
+                    $metrics['up'][] = $this->seriesResult(
+                        $streamLabels,
+                        [$timestamp],
+                        [$age <= self::OFFLINE_AFTER ? 1 : 0]
+                    );
+                }
+            }
+
             foreach ($payload['applications'] as $application)
             {
                 if (
@@ -171,6 +222,9 @@ class TelemetryController extends Controller
                         'application_name' => (string) $application['name'],
                         'environment' => (string) ($application['environment'] ?? ''),
                         'probe' => (string) $probe,
+                        'availability' => $details['availability'] !== null
+                            ? (string) $details['availability']
+                            : '',
                     ];
 
                     $metrics['latency'][] = $this->seriesResult(
@@ -186,7 +240,7 @@ class TelemetryController extends Controller
                     );
 
                     $probeAvailability[] = [
-                        'application_id' => (string) $application['stream_id'],
+                        'application_id' => (string) $application['application_id'],
                         'application_name' => (string) $application['name'],
                         'probe' => (string) $probe,
                         'availability' => $details['availability'],
