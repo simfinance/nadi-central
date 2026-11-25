@@ -119,6 +119,8 @@ class TelemetryController extends Controller
             'tx' => [],
             'probe' => [],
             'latency' => [],
+            'age' => [],
+            'up' => [],
         ];
         $probeAvailability = [];
 
@@ -129,10 +131,27 @@ class TelemetryController extends Controller
 
             if ($server)
             {
+                $streamOrder = ['live' => 0, 'stale' => 1, 'offline' => 2];
+                $serverState = 'offline';
+
+                if (!empty($payload['pipeline']['streams']))
+                {
+                    $serverState = 'live';
+
+                    foreach ($payload['pipeline']['streams'] as $stream)
+                    {
+                        if ($streamOrder[$stream['state']] > $streamOrder[$serverState])
+                        {
+                            $serverState = $stream['state'];
+                        }
+                    }
+                }
+
                 $labels = [
                     'hostname' => (string) $agent->hostname,
                     'server_id' => (string) $agent->server_id,
                     'agent_id' => (string) $agent->id,
+                    'server_state' => $serverState,
                 ];
 
                 foreach ([
