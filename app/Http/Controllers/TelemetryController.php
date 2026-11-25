@@ -83,6 +83,151 @@ class TelemetryController extends Controller
         return response()->json($this->buildPayload($rangeKey, $request->query('agent')));
     }
 
+
+    /**
+     * Histori canonical untuk halaman Infrastructure.
+     *
+     * Data diambil melalui agregasi yang sama dengan halaman Telemetry,
+     * sehingga kedua halaman memakai record, bucket, dan pemilihan resource
+     * yang identik.
+     */
+    public function infrastructureData(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'range' => ['nullable', 'in:1h,6h,24h,7d'],
+            'server_id' => ['nullable', 'uuid'],
+            'application_id' => ['nullable', 'uuid'],
+        ]);
+
+        [$rangeKey] = $this->resolveRange($request);
+
+        $window = self::RANGES[$rangeKey][0];
+        $bucket = self::RANGES[$rangeKey][1];
+        $agents = $this->loadAgents();
+
+        if (!empty($validated['server_id']))
+        {
+            $agents = $agents->where('server_id', $validated['server_id'])->values();
+        }
+
+        $base = $this->basePayload($rangeKey, $agents);
+        $metrics = [
+            'cpu' => [],
+            'memory' => [],
+            'disk' => [],
+            'rx' => [],
+            'tx' => [],
+            'probe' => [],
+            'latency' => [],
+        ];
+        $probeAvailability = [];
+
+        foreach ($agents as $agent)
+        {
+            $payload = $this->agentPayload($agent, $base, $window, $bucket);
+            $server = $payload['server'];
+
+            if ($server)
+            {
+                $labels = [
+                    'hostname' => (string) $agent->hostname,
+                    'server_id' => (string) $agent->server_id,
+                    'agent_id' => (string) $agent->id,
+                ];
+
+                foreach ([
+                    'cpu' => 'cpu_avg',
+                    'memory' => 'mem_avg',
+                    'disk' => 'disk_pct',
+                    'rx' => 'rx_rate',
+                    'tx' => 'tx_rate',
+                ] as $key => $seriesKey)
+                {
+                    $metrics[$key][] = $this->seriesResult(
+                        $labels,
+                        $server['series']['t'] ?? [],
+                        $server['series'][$seriesKey] ?? []
+                    );
+                }
+            }
+
+            foreach ($payload['applications'] as $application)
+            {
+                if (
+                    !empty($validated['application_id'])
+                    && $application['stream_id'] !== $validated['application_id']
+                )
+                {
+                    continue;
+                }
+
+                foreach ($application['probes'] as $probe => $details)
+                {
+                    $labels = [
+                        'hostname' => (string) $agent->hostname,
+                        'server_id' => (string) $agent->server_id,
+                        'agent_id' => (string) $agent->id,
+                        'application_id' => (string) $application['stream_id'],
+                        'application_name' => (string) $application['name'],
+                        'environment' => (string) ($application['environment'] ?? ''),
+                        'probe' => (string) $probe,
+                    ];
+
+                    $metrics['latency'][] = $this->seriesResult(
+                        $labels,
+                        $application['series']['t'] ?? [],
+                        $application['series'][$probe] ?? []
+                    );
+
+                    $metrics['probe'][] = $this->seriesResult(
+                        $labels,
+                        $application['series']['t'] ?? [],
+                        $application['series'][$probe . '_up'] ?? []
+                    );
+
+                    $probeAvailability[] = [
+                        'application_id' => (string) $application['stream_id'],
+                        'application_name' => (string) $application['name'],
+                        'probe' => (string) $probe,
+                        'availability' => $details['availability'],
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'range' => $base['range'],
+            'generated_at' => $base['generated_at'],
+            'metrics' => $metrics,
+            'probe_availability' => $probeAvailability,
+        ]);
+    }
+
+    private function seriesResult(array $labels, array $timestamps, array $values): array
+    {
+        $points = [];
+
+        foreach ($timestamps as $index => $timestamp)
+        {
+            $value = $values[$index] ?? null;
+
+            if ($value === null || !is_numeric($value))
+            {
+                continue;
+            }
+
+            $points[] = [
+                CarbonImmutable::parse($timestamp, 'UTC')->getTimestamp(),
+                (string) $value,
+            ];
+        }
+
+        return [
+            'metric' => $labels,
+            'values' => $points,
+        ];
+    }
+
     /** Detail satu record mentah (dimuat saat baris recent record dibuka). */
     public function record(string $id): JsonResponse
     {
@@ -149,7 +294,7 @@ class TelemetryController extends Controller
             ->where('a.installation_state', 'installed')
             ->orderBy('s.hostname')
             ->get([
-                'a.id', 'a.status', 'a.agent_version', 'a.protocol_version', 'a.installed_at',
+                'a.id', 'a.server_id', 'a.status', 'a.agent_version', 'a.protocol_version', 'a.installed_at',
                 'a.last_control_at', 'a.last_heartbeat_at',
                 's.hostname', 's.ip_address', 's.os_name', 's.os_version', 's.architecture',
             ]);
@@ -720,6 +865,9 @@ class TelemetryController extends Controller
 
             foreach (self::PROBES as $p) {
                 $series[$p][] = $this->f($r->{$p . '_lat'}, 2);
+                $series[$p . '_up'][] = (int) $r->n > 0
+                    ? (int) $r->{$p . '_ok'} / (int) $r->n
+                    : null;
                 $okSum[$p]   += (int) $r->{$p . '_ok'};
             }
         }
