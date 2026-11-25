@@ -40,6 +40,9 @@ class PrometheusQueryService
         ],
         'server_disk_usage' => [
             'metric' => 'nadi_server_disk_usage_percent',
+            'fixed_matchers' => [
+                'is_root' => 'true',
+            ],
             'title' => 'Server Disk Usage',
             'description' => 'Persentase penggunaan filesystem server.',
             'unit' => 'percent',
@@ -49,6 +52,7 @@ class PrometheusQueryService
             'metric' => 'nadi_server_network_bytes_total',
             'fixed_matchers' => [
                 'direction' => 'receive',
+                'is_primary' => 'true',
             ],
             'rate' => true,
             'title' => 'Server Network Receive',
@@ -60,6 +64,7 @@ class PrometheusQueryService
             'metric' => 'nadi_server_network_bytes_total',
             'fixed_matchers' => [
                 'direction' => 'transmit',
+                'is_primary' => 'true',
             ],
             'rate' => true,
             'title' => 'Server Network Transmit',
@@ -285,6 +290,12 @@ class PrometheusQueryService
         }
 
         $expression = $metric['metric'] . $selector;
+
+        if (str_starts_with($key, 'server_'))
+        {
+            $expression = '(' . $expression . ') and on(agent_id) '
+                . '(nadi_telemetry_stream_up{stream="server_metrics"} == 1)';
+        }
 
         if (($metric['rate'] ?? false) === true)
         {
