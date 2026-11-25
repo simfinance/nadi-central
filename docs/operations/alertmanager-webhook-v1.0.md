@@ -2,9 +2,9 @@
 
 ## Status
 
-Central-side authenticated Alertmanager webhook and alert persistence implementation.
+Central-side authenticated Alertmanager webhook and alert persistence implementation, with a matching Alertmanager receiver example.
 
-This phase does not change Prometheus scrape configuration, Prometheus alert rules, Alertmanager production configuration, Agent contracts, or notification delivery routing.
+This phase connects Prometheus alert delivery to Central alert persistence. It does not configure SMTP or other external notification destinations, change Agent contracts, or perform remediation.
 
 ## Endpoint
 
@@ -50,7 +50,7 @@ Successful processing returns HTTP 200 with received, accepted, and duplicate co
 
 Authentication failures return HTTP 401. Invalid payloads return HTTP 422. Oversized bodies return HTTP 413. Missing webhook configuration returns HTTP 503. Internal failures return a generic HTTP 500 response; the raw webhook payload and credential are not written to application logs by this controller.
 
-## Configuration
+## Central configuration
 
 Set a dedicated random token in the Central environment:
 
@@ -58,16 +58,50 @@ Set a dedicated random token in the Central environment:
 NADI_ALERTMANAGER_WEBHOOK_TOKEN=<dedicated-random-secret>
 ```
 
-Configure Alertmanager to send the same token using its `http_config.bearer_token_file` option. The token file should be readable only by the Alertmanager service account and trusted administrators.
+After changing the environment, refresh Laravel's configuration cache using the site's approved deployment procedure. Do not place the token in source control or paste it into support logs.
 
-Do not expose Alertmanager's web listener publicly. Keep its listener bound to `127.0.0.1:9093`.
+## Alertmanager receiver configuration
 
-## Explicitly deferred
+The repository example is:
 
-- Prometheus alert rules and Alertmanager receiver configuration.
-- Alert Management UI and filtering.
-- Automatic SMTP routing, recipients, severity policy, and notification deduplication.
-- Mapping alert labels to NADI server/application registry records.
-- Retention policy values for alert history.
+`docs/operations/alertmanager/alertmanager.yml.example`
 
-The existing notification outbox remains unchanged. This webhook phase persists alert metadata only; it does not send email.
+It configures the receiver to POST firing and resolved alerts to:
+
+`https://nadi.pesantrenalirsyad.org/api/v1/nadi/alertmanager/webhook`
+
+The example expects a token file at:
+
+`/etc/alertmanager/secrets/nadi-central-webhook-token`
+
+Create the directory and token file on the Alertmanager host. The file must contain only the same secret value configured as `NADI_ALERTMANAGER_WEBHOOK_TOKEN`, followed by an optional newline. Restrict directory and file permissions so only the Alertmanager service account and trusted administrators can read them. Do not put the token directly in `alertmanager.yml`.
+
+Merge the receiver, route, and global settings from the example into the existing Alertmanager configuration; back up the existing file first. Preserve any independently approved routes or receivers. The example uses the existing local Alertmanager listener and does not require exposing port 9093 publicly.
+
+Validate the merged configuration with:
+
+```bash
+amtool check-config /etc/alertmanager/alertmanager.yml
+```
+
+Then reload or restart Alertmanager using the site's approved change procedure. Confirm Prometheus is connected to Alertmanager and that a controlled test alert appears in Central Alert Management. Do not enable external notification destinations as part of this step.
+
+## Delivery behavior and boundaries
+
+- Alertmanager sends firing and resolved notifications to Central.
+- Alertmanager retries delivery according to its webhook delivery behavior; Central idempotency prevents duplicate event rows for identical events.
+- Alert grouping is controlled by the Alertmanager route configuration.
+- Central persists alert metadata and history only.
+- This receiver does not send email or Telegram notifications.
+- No auto-remediation is performed.
+
+The existing notification outbox remains unchanged. SMTP routing, recipients, severity policy, and notification deduplication remain separate work requiring explicit policy decisions.
+
+## Operational safety
+
+- Keep Alertmanager's web listener bound to `127.0.0.1:9093`.
+- Keep Prometheus and Alertmanager local APIs private.
+- Use HTTPS for the Central webhook endpoint.
+- Use a dedicated high-entropy webhook token and rotate it through an approved change.
+- Do not expose credentials, secrets, personal data, or business payloads in alert labels or annotations.
+- No production configuration is changed by this repository documentation update.
