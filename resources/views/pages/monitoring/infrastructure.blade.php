@@ -1902,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', function ()
             let label = Object.entries(item.metric || {})
                 .filter(function ([key])
                 {
-                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability', 'server_state', 'current_cpu', 'current_memory', 'current_disk'].includes(key);
+                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability', 'server_state', 'current_value'].includes(key);
                 })
                 .map(function ([key, value])
                 {
