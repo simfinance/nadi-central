@@ -47,6 +47,13 @@ return [
         ),
     ],
 
+    'alertmanager' => [
+        'webhook_token' => env(
+            'NADI_ALERTMANAGER_WEBHOOK_TOKEN',
+            ''
+        ),
+    ],
+
     'grafana' => [
         'internal_url' => env('NADI_GRAFANA_INTERNAL_URL', 'http://127.0.0.1:3000'),
         'public_path' => env('NADI_GRAFANA_PUBLIC_PATH', '/grafana/'),
