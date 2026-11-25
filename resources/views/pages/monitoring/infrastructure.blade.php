@@ -2501,9 +2501,9 @@ document.addEventListener('DOMContentLoaded', function ()
     /* ---------- KPI ---------- */
 
     const kpis = [
-        { id: 'infra-cpu', metric: 'cpu', mode: 'max', unit: 'percent', limits: thresholds.cpu, meter: true, label: 'CPU' },
-        { id: 'infra-memory', metric: 'memory', mode: 'max', unit: 'percent', limits: thresholds.memory, meter: true, label: 'Memory' },
-        { id: 'infra-disk', metric: 'disk', mode: 'max', unit: 'percent', limits: thresholds.disk, meter: true, label: 'Disk' },
+        { id: 'infra-cpu', metric: 'cpu', mode: 'avg', unit: 'percent', limits: thresholds.cpu, meter: true, label: 'CPU' },
+        { id: 'infra-memory', metric: 'memory', mode: 'avg', unit: 'percent', limits: thresholds.memory, meter: true, label: 'Memory' },
+        { id: 'infra-disk', metric: 'disk', mode: 'avg', unit: 'percent', limits: thresholds.disk, meter: true, label: 'Disk' },
         { id: 'infra-network', metric: 'rx', mode: 'sum', unit: 'bytes_per_second', meter: false, label: 'Receive' },
         { id: 'infra-transmit', metric: 'tx', mode: 'sum', unit: 'bytes_per_second', meter: false, label: 'Transmit' }
     ];
@@ -3207,7 +3207,7 @@ document.addEventListener('DOMContentLoaded', function ()
 
             setChart(id, group.series, {
                 unit: group.metric.unit,
-                mode: id === 'chart-network' ? 'sum' : 'max',
+                mode: 'avg',
                 step: group.metric.unit === 'boolean',
                 thresholds: thresholds[key] || null,
                 message: group.errors.length && !group.series.length ? group.errors[0] : ''
