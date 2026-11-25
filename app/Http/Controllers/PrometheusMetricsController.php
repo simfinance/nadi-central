@@ -509,6 +509,7 @@ class PrometheusMetricsController extends Controller
             $diskLabels = $labels + [
                 'mount_point' => (string) ($disk['mount_point'] ?? 'unknown'),
                 'filesystem' => (string) ($disk['filesystem'] ?? 'unknown'),
+                'is_root' => ($disk['mount_point'] ?? null) === '/' ? 'true' : 'false',
             ];
 
             if (is_numeric($disk['usage_percent'] ?? null))
@@ -539,6 +540,26 @@ class PrometheusMetricsController extends Controller
             }
         }
 
+        $primaryInterface = null;
+        $primaryTraffic = -1;
+
+        foreach (($data['network_interfaces'] ?? []) as $network)
+        {
+            if (!is_array($network) || ($network['interface'] ?? '') === 'lo')
+            {
+                continue;
+            }
+
+            $traffic = (float) ($network['receive_bytes'] ?? 0)
+                + (float) ($network['transmit_bytes'] ?? 0);
+
+            if ($traffic > $primaryTraffic)
+            {
+                $primaryTraffic = $traffic;
+                $primaryInterface = (string) ($network['interface'] ?? 'unknown');
+            }
+        }
+
         foreach (($data['network_interfaces'] ?? []) as $network)
         {
             if (!is_array($network))
@@ -546,8 +567,11 @@ class PrometheusMetricsController extends Controller
                 continue;
             }
 
+            $interface = (string) ($network['interface'] ?? 'unknown');
+
             $networkLabels = $labels + [
-                'interface' => (string) ($network['interface'] ?? 'unknown'),
+                'interface' => $interface,
+                'is_primary' => $interface === $primaryInterface ? 'true' : 'false',
             ];
 
             foreach ([
