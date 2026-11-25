@@ -152,29 +152,27 @@ class TelemetryController extends Controller
                     'server_id' => (string) $agent->server_id,
                     'agent_id' => (string) $agent->id,
                     'server_state' => $serverState,
-                    'current_cpu' => isset($server['cpu']['usage'])
-                        ? (string) $server['cpu']['usage']
-                        : '',
-                    'current_memory' => isset($server['memory']['usage_percent'])
-                        ? (string) $server['memory']['usage_percent']
-                        : '',
-                    'current_disk' => isset($server['disks'][0]['usage'])
-                        ? (string) $server['disks'][0]['usage']
-                        : '',
                 ];
 
                 foreach ([
-                    'cpu' => 'cpu_avg',
-                    'memory' => 'mem_avg',
-                    'disk' => 'disk_pct',
-                    'rx' => 'rx_rate',
-                    'tx' => 'tx_rate',
-                ] as $key => $seriesKey)
+                    'cpu' => ['series' => 'cpu_avg', 'current' => $server['cpu']['usage'] ?? null],
+                    'memory' => ['series' => 'mem_avg', 'current' => $server['memory']['usage_percent'] ?? null],
+                    'disk' => ['series' => 'disk_pct', 'current' => $server['disks'][0]['usage'] ?? null],
+                    'rx' => ['series' => 'rx_rate', 'current' => null],
+                    'tx' => ['series' => 'tx_rate', 'current' => null],
+                ] as $key => $metric)
                 {
+                    $metricLabels = $labels;
+
+                    if ($metric['current'] !== null)
+                    {
+                        $metricLabels['current_value'] = (string) $metric['current'];
+                    }
+
                     $metrics[$key][] = $this->seriesResult(
-                        $labels,
+                        $metricLabels,
                         $server['series']['t'] ?? [],
-                        $server['series'][$seriesKey] ?? []
+                        $server['series'][$metric['series']] ?? []
                     );
                 }
             }
