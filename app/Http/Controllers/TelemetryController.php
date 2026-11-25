@@ -155,7 +155,7 @@ class TelemetryController extends Controller
             {
                 if (
                     !empty($validated['application_id'])
-                    && $application['stream_id'] !== $validated['application_id']
+                    && $application['application_id'] !== $validated['application_id']
                 )
                 {
                     continue;
@@ -167,7 +167,7 @@ class TelemetryController extends Controller
                         'hostname' => (string) $agent->hostname,
                         'server_id' => (string) $agent->server_id,
                         'agent_id' => (string) $agent->id,
-                        'application_id' => (string) $application['stream_id'],
+                        'application_id' => (string) $application['application_id'],
                         'application_name' => (string) $application['name'],
                         'environment' => (string) ($application['environment'] ?? ''),
                         'probe' => (string) $probe,
@@ -890,6 +890,7 @@ class TelemetryController extends Controller
 
         return [
             'stream_id'          => $stream->id,
+            'application_id'     => $stream->application_id,
             'name'               => $stream->application_name,
             'key'                => $stream->application_key,
             'environment'        => $stream->environment,
