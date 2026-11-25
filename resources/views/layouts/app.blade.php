@@ -556,6 +556,14 @@
                         <span>Activation Grants</span>
                     </a>
 
+                    <a href="{{ route('management.alerts') }}" class="menu-link {{ request()->routeIs('management.alerts*') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3l9 17H3L12 3z"/>
+                            <path d="M12 9v5M12 17h.01"/>
+                        </svg>
+                        <span>Alert Management</span>
+                    </a>
+
                     <a href="{{ route('management.notifications') }}" class="menu-link {{ request()->routeIs('management.notifications*') ? 'active' : '' }}">
                         <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M4 5h16v14H4z"/>
