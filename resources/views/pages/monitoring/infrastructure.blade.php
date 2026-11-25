@@ -1343,7 +1343,7 @@
             <div class="infra-panel-header">
                 <div>
                     <div class="infra-panel-title">Disk Utilization</div>
-                    <div class="infra-panel-description">Percent · per mount point</div>
+                    <div class="infra-panel-description">Percent · root filesystem (/)</div>
                 </div>
                 <div class="infra-chart-stats" data-stats="chart-disk"></div>
             </div>
@@ -1945,53 +1945,6 @@ document.addEventListener('DOMContentLoaded', function ()
             return series.values.length > 0;
         });
     }
-
-    function queryUrl(metric, start, end, step)
-    {
-        const url = new URL(root.dataset.queryUrl + '/' + metric.name, window.location.origin);
-
-        if (elements.server.value)
-        {
-            url.searchParams.set('server_id', elements.server.value);
-        }
-
-        if (elements.application.value && metric.scoped)
-        {
-            url.searchParams.set('application_id', elements.application.value);
-        }
-
-        url.searchParams.set('start', start);
-        url.searchParams.set('end', end);
-        url.searchParams.set('step', String(step));
-
-        return url.toString();
-    }
-
-    async function getJson(url, signal)
-    {
-        const response = await fetch(url, {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin',
-            signal: signal
-        });
-
-        const payload = await response.json().catch(function ()
-        {
-            return {};
-        });
-
-        if (!response.ok || payload.status !== 'ok')
-        {
-            throw new Error(payload.message || 'Request failed (' + response.status + ').');
-        }
-
-        return payload;
-    }
-
-    /* ---------- Charts ---------- */
 
     function visibleSeries(chart)
     {
@@ -2601,7 +2554,7 @@ document.addEventListener('DOMContentLoaded', function ()
             setKpi(kpi.id, {
                 value: formatValue(latest, kpi.unit),
                 meta: series.length > 1
-                    ? (kpi.mode === 'max' ? 'Highest of ' : 'Total of ') + series.length + ' series'
+                    ? (kpi.mode === 'max' ? 'Highest of ' : (kpi.mode === 'sum' ? 'Total of ' : 'Average of ')) + series.length + ' series'
                     : 'Latest sample · ' + clock(lastPoint(series[0]).time),
                 tone: kpi.limits ? toneFor(latest, kpi.limits) : '',
                 spark: sparkline(points, color),
@@ -3316,16 +3269,13 @@ document.addEventListener('DOMContentLoaded', function ()
         {
             overview = overviewResult.value;
             overviewError = '';
-            setConnection(
-                overview.prometheus === 'reachable' && overview.exporter === 'up' ? 'up' : 'down',
-                'Prometheus ' + overview.prometheus + ' · Exporter ' + overview.exporter
-            );
+            /* Prometheus status is shown separately in the scrape-target panel. */
         }
         else
         {
             overview = null;
             overviewError = overviewResult.reason && overviewResult.reason.message ? overviewResult.reason.message : 'Prometheus is unavailable.';
-            setConnection('down', 'Monitoring data unavailable');
+            /* Canonical telemetry endpoint determines the page connection state. */
         }
 
         const telemetryResult = settled[1];
@@ -3333,6 +3283,7 @@ document.addEventListener('DOMContentLoaded', function ()
         if (telemetryResult.status === 'fulfilled')
         {
             const telemetry = telemetryResult.value;
+            setConnection('up', 'Central telemetry records · canonical');
 
             metrics.forEach(function (metric)
             {
@@ -3349,6 +3300,8 @@ document.addEventListener('DOMContentLoaded', function ()
         }
         else
         {
+            setConnection('down', 'Central telemetry data unavailable');
+
             metrics.forEach(function (metric)
             {
                 store[metric.key] = {
