@@ -479,6 +479,13 @@
                         <span>Applications</span>
                     </a>
 
+                    <a href="{{ route('monitoring.infrastructure') }}" class="menu-link {{ request()->routeIs('monitoring.infrastructure') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-7"/>
+                        </svg>
+                        <span>Infrastructure</span>
+                    </a>
+
                     <a href="{{ route('monitoring.databases') }}" class="menu-link {{ request()->routeIs('monitoring.databases') ? 'active' : '' }}">
                         <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M46v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
                         <span>Databases</span>
