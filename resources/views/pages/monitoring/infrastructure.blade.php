@@ -1902,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', function ()
             let label = Object.entries(item.metric || {})
                 .filter(function ([key])
                 {
-                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability', 'server_state', 'current_value'].includes(key);
+                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability', 'server_state', 'current_value', 'current_up'].includes(key);
                 })
                 .map(function ([key, value])
                 {
@@ -1917,7 +1917,10 @@ document.addEventListener('DOMContentLoaded', function ()
 
             return {
                 label: label || 'Value',
-                availability: Number.isFinite(Number(item.metric && item.metric.availability))
+                availability: item.metric
+                    && item.metric.availability !== undefined
+                    && item.metric.availability !== ''
+                    && Number.isFinite(Number(item.metric.availability))
                     ? Number(item.metric.availability)
                     : null,
                 serverState: item.metric && item.metric.server_state
@@ -1925,6 +1928,9 @@ document.addEventListener('DOMContentLoaded', function ()
                     : null,
                 currentValue: Number.isFinite(Number(item.metric && item.metric.current_value))
                     ? Number(item.metric.current_value)
+                    : null,
+                currentUp: item.metric && item.metric.current_up !== undefined
+                    ? Number(item.metric.current_up)
                     : null,
                 values: (item.values || []).map(function (point)
                 {
@@ -2631,7 +2637,7 @@ document.addEventListener('DOMContentLoaded', function ()
         const availability = availabilityValues.length
             ? availabilityValues.reduce((sum, value) => sum + value, 0) / availabilityValues.length
             : 0;
-        const nowOk = probeSeries.filter(item => lastPoint(item).value >= 1).length;
+        const nowOk = probeSeries.filter(item => item.currentUp === 1).length;
         const tone = availability >= 99 ? 'ok' : availability >= 50 ? 'warn' : 'bad';
         const color = { ok: '#12a150', warn: '#d97706', bad: '#dc4c64' }[tone];
 
@@ -3034,7 +3040,7 @@ document.addEventListener('DOMContentLoaded', function ()
 
         body.innerHTML = probe.series.map(function (item)
         {
-            const healthy = lastPoint(item).value >= 1;
+            const healthy = item.currentUp === 1;
             const okCount = item.values.filter(point => point.value >= 1).length;
             const availability = Number.isFinite(item.availability)
                 ? item.availability
