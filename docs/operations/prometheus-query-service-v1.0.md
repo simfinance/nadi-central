@@ -8,6 +8,8 @@ Laravel Central acts as the only application-facing gateway for Prometheus query
 
 This service is read-only. It does not modify Prometheus configuration, telemetry records, Agent payloads, or the existing scrape/exporter endpoint.
 
+The native Infrastructure page uses the canonical MySQL telemetry aggregation endpoint exposed by `TelemetryController`, not this Prometheus query gateway, for server/application metric values. This is intentional: Infrastructure and Telemetry must use the same Agent records, bucket definitions, root filesystem selection, primary network interface selection, and probe aggregation. Prometheus remains the time-series backend for Grafana and the source for scrape-target health information.
+
 ## Access control
 
 All query endpoints are registered inside the existing Central web route group protected by:
