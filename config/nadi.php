@@ -52,5 +52,35 @@ return [
             'NADI_PROMETHEUS_METRICS_TOKEN',
             ''
         ),
+
+        'base_url' => env(
+            'NADI_PROMETHEUS_URL',
+            'http://127.0.0.1:9090'
+        ),
+
+        'connect_timeout_seconds' => (int) env(
+            'NADI_PROMETHEUS_CONNECT_TIMEOUT_SECONDS',
+            2
+        ),
+
+        'timeout_seconds' => (int) env(
+            'NADI_PROMETHEUS_TIMEOUT_SECONDS',
+            5
+        ),
+
+        'cache_seconds' => (int) env(
+            'NADI_PROMETHEUS_QUERY_CACHE_SECONDS',
+            10
+        ),
+
+        'max_range_hours' => (int) env(
+            'NADI_PROMETHEUS_MAX_RANGE_HOURS',
+            168
+        ),
+
+        'max_data_points' => (int) env(
+            'NADI_PROMETHEUS_MAX_DATA_POINTS',
+            11000
+        ),
     ],
 ];
