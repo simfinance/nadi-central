@@ -117,10 +117,12 @@ The Central application does not create or overwrite Grafana dashboards or datas
 
 1. Configure Grafana Auth Proxy and bind Grafana to a private interface.
 2. Add the Nginx locations to the existing TLS virtual host and replace the Laravel upstream placeholder.
-3. Set the four `NADI_GRAFANA_*` environment values.
-4. Provision the Prometheus datasource and the dashboard UID.
-5. Copy the three provisioning assets into the Grafana provisioning/dashboard directories, set `NADI_GRAFANA_DASHBOARD_UID=nadi-overview`, and restart or reload Grafana using the normal service procedure.\n6. Run `php artisan optimize:clear` and `php artisan config:cache` using the normal deployment procedure.
-6. Validate that unauthenticated requests to `/grafana/` are rejected, authenticated Central users complete MFA before Grafana loads, and Grafana users are Viewer.
-7. Confirm direct access to port 3000 is unavailable from public networks.
+3. Set the four `NADI_GRAFANA_*` environment values, including `NADI_GRAFANA_DASHBOARD_UID=nadi-overview`.
+4. Copy the datasource provisioning YAML into Grafana's datasource provisioning directory.
+5. Copy the dashboard provider YAML into Grafana's dashboard provisioning directory, and place the dashboard JSON at `/etc/grafana/dashboards/nadi/nadi-overview-dashboard.json`. Create the target directory first.
+6. Restart or reload Grafana using the normal service procedure so it loads the datasource and dashboard.
+7. Run `php artisan optimize:clear` and `php artisan config:cache` using the normal deployment procedure.
+8. Validate that unauthenticated requests to `/grafana/` are rejected, authenticated Central users complete MFA before Grafana loads, and Grafana users are Viewer.
+9. Confirm direct access to port 3000 is unavailable from public networks.
 
 No production server configuration was changed by this repository commit. No tests or deployment commands were executed.
