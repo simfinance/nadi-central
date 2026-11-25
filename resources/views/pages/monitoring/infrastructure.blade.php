@@ -476,6 +476,26 @@
     <section class="infra-panel">
         <div class="infra-panel-header">
             <div>
+                <div class="infra-panel-title">Telemetry Freshness</div>
+                <div class="infra-panel-description">Age and availability of the latest telemetry stream samples</div>
+            </div>
+        </div>
+
+        <div class="infra-grid">
+            <div>
+                <canvas class="infra-chart" id="chart-stream-age" aria-label="Telemetry stream age chart"></canvas>
+                <div class="infra-empty" hidden>No telemetry freshness samples in this range.</div>
+            </div>
+            <div>
+                <canvas class="infra-chart" id="chart-stream-up" aria-label="Telemetry stream availability chart"></canvas>
+                <div class="infra-empty" hidden>No telemetry availability samples in this range.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="infra-panel">
+        <div class="infra-panel-header">
+            <div>
                 <div class="infra-panel-title">Prometheus Scrape Targets</div>
                 <div class="infra-panel-description">Status koneksi exporter dan target scrape aktif</div>
             </div>
@@ -568,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function ()
             url.searchParams.set('server_id', elements.server.value);
         }
 
-        if (elements.application.value && metric.startsWith('application_'))
+        if (elements.application.value && (metric.startsWith('application_') || metric.startsWith('telemetry_stream_')))
         {
             url.searchParams.set('application_id', elements.application.value);
         }
@@ -833,7 +853,9 @@ document.addEventListener('DOMContentLoaded', function ()
 
             const appMetrics = [
                 ['application_probe_up', 'chart-probe', 'boolean'],
-                ['application_probe_latency', 'chart-latency', 'milliseconds']
+                ['application_probe_latency', 'chart-latency', 'milliseconds'],
+                ['telemetry_stream_age', 'chart-stream-age', 'seconds'],
+                ['telemetry_stream_up', 'chart-stream-up', 'boolean']
             ];
 
             const requests = [...serverMetrics, ...appMetrics].map(async function (item)
