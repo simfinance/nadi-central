@@ -1137,14 +1137,14 @@
     class="infra-page"
     id="infrastructure-monitoring"
     data-overview-url="{{ route('monitoring.prometheus.overview') }}"
-    data-query-url="{{ url('/monitoring/prometheus/query') }}"
+    data-data-url="{{ route('monitoring.infrastructure.data') }}"
 >
     <div class="infra-progress"></div>
 
     <div class="page-header">
         <h1 class="page-title">Infrastructure Monitoring</h1>
         <p class="page-description">
-            Telemetry historis server dan aplikasi dari Prometheus, dengan NADI Central sebagai gateway.
+            Histori server dan aplikasi dari record telemetry Agent yang sama dengan halaman Telemetry.
         </p>
     </div>
 
@@ -1520,12 +1520,12 @@ document.addEventListener('DOMContentLoaded', function ()
         updated: document.getElementById('infra-updated')
     };
 
-    /* Step maksimum 300 detik mengikuti validasi PrometheusQueryController (between:15,300). */
+    /* Bucket mengikuti definisi range pada TelemetryController. */
     const rangeSettings = {
-        '1h': { seconds: 3600, step: 30 },
-        '6h': { seconds: 21600, step: 60 },
-        '24h': { seconds: 86400, step: 300 },
-        '7d': { seconds: 604800, step: 300 }
+        '1h': { seconds: 3600, step: 60 },
+        '6h': { seconds: 21600, step: 300 },
+        '24h': { seconds: 86400, step: 900 },
+        '7d': { seconds: 604800, step: 3600 }
     };
 
     const AUTO_SECONDS = 30;
@@ -1902,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', function ()
             let label = Object.entries(item.metric || {})
                 .filter(function ([key])
                 {
-                    return !['__name__', 'agent_id', 'server_id', 'application_id'].includes(key);
+                    return !['__name__', 'agent_id', 'server_id', 'application_id', 'availability'].includes(key);
                 })
                 .map(function ([key, value])
                 {
@@ -1917,6 +1917,9 @@ document.addEventListener('DOMContentLoaded', function ()
 
             return {
                 label: label || 'Value',
+                availability: Number.isFinite(Number(item.metric && item.metric.availability))
+                    ? Number(item.metric.availability)
+                    : null,
                 values: (item.values || []).map(function (point)
                 {
                     return { time: Number(point[0]), value: Number(point[1]) };
@@ -2609,9 +2612,13 @@ document.addEventListener('DOMContentLoaded', function ()
         }
 
         const ratioPoints = aggregate(probeSeries, 'avg').map(point => ({ time: point.time, value: point.value * 100 }));
+        const availabilityValues = probeSeries
+            .map(item => item.availability)
+            .filter(value => Number.isFinite(value));
         const total = probeSeries.reduce((sum, item) => sum + item.values.length, 0);
-        const okCount = probeSeries.reduce((sum, item) => sum + item.values.filter(point => point.value >= 1).length, 0);
-        const availability = (okCount / total) * 100;
+        const availability = availabilityValues.length
+            ? availabilityValues.reduce((sum, value) => sum + value, 0) / availabilityValues.length
+            : 0;
         const nowOk = probeSeries.filter(item => lastPoint(item).value >= 1).length;
         const tone = availability >= 99 ? 'ok' : availability >= 50 ? 'warn' : 'bad';
         const color = { ok: '#12a150', warn: '#d97706', bad: '#dc4c64' }[tone];
@@ -3017,7 +3024,9 @@ document.addEventListener('DOMContentLoaded', function ()
         {
             const healthy = lastPoint(item).value >= 1;
             const okCount = item.values.filter(point => point.value >= 1).length;
-            const availability = (okCount / item.values.length) * 100;
+            const availability = Number.isFinite(item.availability)
+                ? item.availability
+                : (okCount / item.values.length) * 100;
             const related = latencyMap.get(item.label);
             const stats = related ? statsOf(related.values) : null;
 
@@ -3251,12 +3260,23 @@ document.addEventListener('DOMContentLoaded', function ()
         elements.refresh.textContent = 'Loading...';
         countdown = AUTO_SECONDS;
 
-        const tasks = [
-            getJson(root.dataset.overviewUrl, signal)
-        ].concat(metrics.map(function (metric)
+        const dataUrl = new URL(root.dataset.dataUrl, window.location.origin);
+        dataUrl.searchParams.set('range', elements.range.value);
+
+        if (elements.server.value)
         {
-            return getJson(queryUrl(metric, startDate.toISOString(), endDate.toISOString(), range.step), signal);
-        }));
+            dataUrl.searchParams.set('server_id', elements.server.value);
+        }
+
+        if (elements.application.value)
+        {
+            dataUrl.searchParams.set('application_id', elements.application.value);
+        }
+
+        const tasks = [
+            getJson(root.dataset.overviewUrl, signal),
+            getJson(dataUrl.toString(), signal)
+        ];
 
         const settled = await Promise.allSettled(tasks);
 
@@ -3290,26 +3310,38 @@ document.addEventListener('DOMContentLoaded', function ()
             setConnection('down', 'Monitoring data unavailable');
         }
 
-        metrics.forEach(function (metric, index)
-        {
-            const result = settled[index + 1];
+        const telemetryResult = settled[1];
 
-            if (result.status === 'fulfilled')
+        if (telemetryResult.status === 'fulfilled')
+        {
+            const telemetry = telemetryResult.value;
+
+            metrics.forEach(function (metric)
             {
                 store[metric.key] = {
                     ok: true,
-                    series: seriesFromResult(result.value.result || [], metric.prefix)
+                    series: seriesFromResult(
+                        telemetry.metrics && telemetry.metrics[metric.key]
+                            ? telemetry.metrics[metric.key]
+                            : [],
+                        metric.prefix
+                    )
                 };
-            }
-            else
+            });
+        }
+        else
+        {
+            metrics.forEach(function (metric)
             {
                 store[metric.key] = {
                     ok: false,
                     series: [],
-                    error: result.reason && result.reason.message ? result.reason.message : 'Metric query failed.'
+                    error: telemetryResult.reason && telemetryResult.reason.message
+                        ? telemetryResult.reason.message
+                        : 'Canonical telemetry query failed.'
                 };
-            }
-        });
+            });
+        }
 
         lastUpdate = new Date();
 
