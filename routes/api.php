@@ -1,15 +1,15 @@
 <?php
 
-use App\\Http\\Controllers\\AgentCredentialDeliveryController;
-use App\\Http\\Controllers\\Api\\V1\\Nadi\\AgentControlController;
-use App\\Http\\Controllers\\Api\\V1\\Nadi\\AgentEnrollmentController;
-use App\\Http\\Controllers\\Api\\V1\\Nadi\\AgentActivationController;
-use App\\Http\\Controllers\\Api\\V1\\Nadi\\AgentTelemetryController;
-use App\\Http\\Controllers\\Api\\V1\\Nadi\\AlertmanagerWebhookController;
-use App\\Http\\Controllers\\Api\\V1\\Nadi\\ReleaseManifestController;
-use App\\Http\\Controllers\\PrometheusMetricsController;
+use App\Http\Controllers\AgentCredentialDeliveryController;
+use App\Http\Controllers\Api\V1\Nadi\AgentControlController;
+use App\Http\Controllers\Api\V1\Nadi\AgentEnrollmentController;
+use App\Http\Controllers\Api\V1\Nadi\AgentActivationController;
+use App\Http\Controllers\Api\V1\Nadi\AgentTelemetryController;
+use App\Http\Controllers\Api\V1\Nadi\AlertmanagerWebhookController;
+use App\Http\Controllers\Api\V1\Nadi\ReleaseManifestController;
+use App\Http\Controllers\PrometheusMetricsController;
 
-use Illuminate\\Support\\Facades\\Route;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
