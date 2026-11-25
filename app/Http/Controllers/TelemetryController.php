@@ -152,6 +152,15 @@ class TelemetryController extends Controller
                     'server_id' => (string) $agent->server_id,
                     'agent_id' => (string) $agent->id,
                     'server_state' => $serverState,
+                    'current_cpu' => isset($server['cpu']['usage'])
+                        ? (string) $server['cpu']['usage']
+                        : '',
+                    'current_memory' => isset($server['memory']['usage_percent'])
+                        ? (string) $server['memory']['usage_percent']
+                        : '',
+                    'current_disk' => isset($server['disks'][0]['usage'])
+                        ? (string) $server['disks'][0]['usage']
+                        : '',
                 ];
 
                 foreach ([
