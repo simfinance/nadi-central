@@ -271,12 +271,21 @@ class AlertmanagerWebhookController extends Controller
                         ->lockForUpdate()
                         ->first();
 
-                    if (
+                    $incomingEventIsOlder = (
+                        $existingAlert
+                        && $existingAlert->starts_at !== null
+                        && $startsAt !== null
+                        && $existingAlert->starts_at > $startsAt
+                    );
+
+                    $resolvedEventReopened = (
                         $existingAlert
                         && $existingAlert->status === 'resolved'
                         && $alert['status'] === 'firing'
                         && $existingAlert->starts_at === $startsAt
-                    )
+                    );
+
+                    if ($incomingEventIsOlder || $resolvedEventReopened)
                     {
                         $acceptedCount++;
 
