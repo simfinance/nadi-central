@@ -35,12 +35,16 @@ serve_from_sub_path = true
 [security]
 allow_embedding = true
 
+[users]
+auto_assign_org = true
+auto_assign_org_id = 1
+auto_assign_org_role = Viewer
+
 [auth.proxy]
 enabled = true
 header_name = X-WEBAUTH-USER
 header_property = username
 auto_sign_up = true
-auto_assign_org_role = Viewer
 whitelist = 127.0.0.1
 ```
 
@@ -86,9 +90,17 @@ For deployments where Laravel is served directly by PHP-FPM rather than an HTTP 
 
 ## Dashboard
 
-Create or provision a Grafana dashboard with UID configured in `NADI_GRAFANA_DASHBOARD_UID`. The application embeds the dashboard at `/grafana/d/{uid}/nadi-overview?orgId={org_id}&kiosk`.
+Provisioning examples are included in this repository:
 
-Provision the dashboard and its Prometheus datasource in Grafana. The Central application does not create or overwrite Grafana dashboards or datasources.
+- `docs/operations/grafana/nadi-prometheus-datasource.yml`
+- `docs/operations/grafana/nadi-dashboard-provider.yml`
+- `docs/operations/grafana/nadi-overview-dashboard.json`
+
+Copy the datasource provisioning file into Grafana's datasource provisioning directory. Copy the dashboard provider file into its dashboard provisioning directory, then place the JSON file at `/etc/grafana/dashboards/nadi/nadi-overview-dashboard.json` (create the directory first). Adjust paths and organization IDs to the actual installation.
+
+The datasource uses the local Prometheus API at `http://127.0.0.1:9090`, UID `nadi-prometheus`, and proxy access. The dashboard UID is `nadi-overview`; set `NADI_GRAFANA_DASHBOARD_UID=nadi-overview` after provisioning. The dashboard panels use the metric names and labels emitted by the current Central exporter.
+
+The Central application does not create or overwrite Grafana dashboards or datasources at runtime.
 
 ## Security boundaries
 
@@ -107,7 +119,7 @@ Provision the dashboard and its Prometheus datasource in Grafana. The Central ap
 2. Add the Nginx locations to the existing TLS virtual host and replace the Laravel upstream placeholder.
 3. Set the four `NADI_GRAFANA_*` environment values.
 4. Provision the Prometheus datasource and the dashboard UID.
-5. Run `php artisan optimize:clear` and `php artisan config:cache` using the normal deployment procedure.
+5. Copy the three provisioning assets into the Grafana provisioning/dashboard directories, set `NADI_GRAFANA_DASHBOARD_UID=nadi-overview`, and restart or reload Grafana using the normal service procedure.\n6. Run `php artisan optimize:clear` and `php artisan config:cache` using the normal deployment procedure.
 6. Validate that unauthenticated requests to `/grafana/` are rejected, authenticated Central users complete MFA before Grafana loads, and Grafana users are Viewer.
 7. Confirm direct access to port 3000 is unavailable from public networks.
 
