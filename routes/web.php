@@ -131,7 +131,7 @@ Route::middleware(['auth', 'mfa'])->group(function () {
             Route::put('/notification-mail', [NotificationMailSettingsController::class, 'update'])->name('notification-mail.update');
             Route::post('/notification-mail/test', [NotificationMailSettingsController::class, 'sendTest'])->name('notification-mail.test');
 
-            Route::get('/notifications', [NotificationDeliveryController::class, 'index'])->name('notifications');
+            Route::get('/alerts', [AlertManagementController::class, 'index'])->name('alerts');\n            Route::get('/alerts/{fingerprint}', [AlertManagementController::class, 'show'])->name('alerts.show');\n\n            Route::get('/notifications', [NotificationDeliveryController::class, 'index'])->name('notifications');
             Route::post('/notifications', [NotificationDeliveryController::class, 'store'])->name('notifications.store');
 
             Route::get('/notification-templates', [NotificationTemplateController::class, 'index'])->name('notification-templates');
