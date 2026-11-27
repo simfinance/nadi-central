@@ -73,6 +73,8 @@ Central has a protected scrape endpoint at `GET /api/internal/prometheus/metrics
 
 The exporter rechecks current Agent/application grant and capability before exposing samples and does not cache authorized exposition.
 
+**Important fidelity limitation:** the exporter selects only the highest accepted sequence record per stream. It is a latest-state scrape exporter, not a replayable metric delivery queue. If Prometheus is unavailable or multiple Agent samples arrive between successful scrapes, intermediate samples are not replayed later. The current path therefore does not guarantee preservation of every Agent metric sample in Prometheus. If the requirement is complete sample history, approve a durable per-batch outbox and Prometheus Remote Write delivery (or another explicitly replayable design); retain the scrape exporter for current-state/exporter health.
+
 **CI evidence:** PR #10 runs an isolated Prometheus 3.5 container, scrapes the Laravel endpoint with a test-only Bearer token, checks the target health, and queries `nadi_prometheus_exporter_up=1` successfully.
 
 **Still required in the target environment:**
@@ -83,7 +85,9 @@ The exporter rechecks current Agent/application grant and capability before expo
 - Test that suspended, revoked, expired and unauthorized applications stop producing active samples.
 - Test Prometheus outage/recovery and confirm Central ingestion remains available.
 
-No Prometheus endpoint was contacted during this repository work.
+The exporter intentionally does not cache authorized exposition so grant suspension/revocation is reflected on the next scrape. Each scrape therefore performs MySQL reads and current grant/capability checks. Before production, load-test the endpoint at the expected Agent fleet size and scrape interval; determine whether a bounded data cache with explicit authorization invalidation is required.
+
+No target Prometheus endpoint was contacted during this repository work.
 
 ### 3.4 Loki and logs
 
@@ -128,6 +132,7 @@ CI imported `database/schema/nadi-baseline.sql` and successfully ran the complet
 The telemetry migration creates tables only when absent. It does not reconcile an existing table with a different manually-created schema.
 
 Before any non-production or production migration:
+- Verify the database vendor/version. CI uses MySQL 8.4.13; the migration uses MySQL collation `utf8mb4_0900_ai_ci`, so do not assume MariaDB or an older MySQL-compatible server is supported.
 - Capture and review `SHOW CREATE TABLE` for all six telemetry tables and the new database probe state table.
 - Compare indexes, foreign keys, collations, column types and datetime precision with the repository migration.
 - Take and verify a database backup.
@@ -139,6 +144,13 @@ No production schema was inspected.
 ### 3.8 Retention and recovery
 
 The two MySQL cleanup implementations now preserve record idempotency keys while corresponding telemetry/event records remain. This does not complete cross-backend retention.
+
+There are still two overlapping MySQL cleanup services with different cutoff semantics:
+- The scheduled `TelemetryRetentionCleanupService` uses `created_at` for raw telemetry records/events and includes Central health snapshots.
+- The alternate `TelemetryRetentionService` uses `observed_at` for records/events and does not include Central health snapshots; its command was not scheduled in the inspected `routes/console.php`.
+- The alternate service's missing table argument was fixed and tested, but its external/manual operational usage is unknown.
+
+Do not switch the scheduled cleanup to the alternate command until its operational ownership, cutoff semantics and snapshot coverage are reconciled. A single authoritative MySQL cleanup path is still required.
 
 Before production:
 - Approve one retention taxonomy for metrics, logs, events, outbox/staging, idempotency, gaps, alerts, notification logs and audit history.
@@ -198,6 +210,7 @@ Save test evidence, timestamps, release SHAs, configuration hashes (without secr
 ## 5. Production deployment gates
 
 - [ ] Owner approves the remaining delivery/ACK and wire-format decisions.
+- [ ] Metric sample fidelity is explicitly decided; if every sample must be retained in Prometheus, a durable outbox/replayable delivery path is implemented and tested.
 - [ ] Agent and Laravel Bridge release versions are explicitly pinned and production-ready.
 - [ ] Ed25519 key distribution and grant re-issuance plan approved.
 - [ ] Actual Agent-to-Central activation E2E passed.
