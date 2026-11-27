@@ -1,0 +1,172 @@
+# Central Telemetry Backend Delivery — Decision Proposal v1.0
+
+**Status:** Draft for owner decision; not an approved ADR  
+**Date:** 27 November 2026  
+**Repository:** `simfinance/nadi-central`  
+**Base:** `security/telemetry-capability-enforcement`
+
+## 1. Purpose
+
+This proposal defines the decisions required to move Central from an Agent-facing telemetry intake with MySQL persistence to the approved storage and monitoring architecture:
+
+- Metrics: Prometheus.
+- Logs: Loki.
+- Events: MySQL or an explicitly selected event store.
+- Alerts: Alertmanager plus Central metadata.
+- Audit and approval history: MySQL, excluded from telemetry cleanup.
+- Retention: one global Central policy, consistently applied to MySQL, Prometheus, and Loki.
+
+This document is a proposal only. It does not approve a new wire contract, backend protocol, retention policy, or Agent behavior.
+
+## 2. Verified current Central state
+
+The following points are based on source inspection and the successful isolated MySQL CI run:
+
+1. The Agent telemetry endpoint authenticates the Agent, validates the payload, authorizes and sanitizes records, then calls `TelemetryIngestionService`.
+2. `TelemetryIngestionService::ingest()` writes the batch, idempotency keys, stream metadata, sequence watermarks, gaps, and telemetry records/events in one MySQL transaction.
+3. The service stores the accepted acknowledgement response in `nadi_telemetry_batches.ack_response` and returns it after the transaction completes.
+4. The controller currently responds with HTTP 200 and `data.status = accepted`.
+5. Central already exposes an authenticated Prometheus scrape endpoint at `GET /api/internal/prometheus/metrics`. It renders Prometheus text exposition from the latest Agent telemetry records persisted in MySQL. This is a scrape/exporter path, not Prometheus Remote Write.
+6. Merged PR #7 extends the exporter to include `database_metrics`, backed by a transactional per-application probe state table for last status, last success, latency, and cumulative failures. The exporter now re-checks current Agent/application authorization before exposing each stream and no longer caches authorized exposition for five seconds.
+7. The exporter currently supports `server_metrics`, `application_metrics`, and `database_metrics`. PR #10 adds a real Prometheus 3.5 container to CI; it successfully scrapes the Central endpoint with Bearer authentication and queries `nadi_prometheus_exporter_up=1`. PR #13 adds the five database probe metric families to the query catalog, freshness-gates database PromQL, adds four database alert rules, and validates all 16 alert rules with `promtool` in CI. The target environment still needs production scrape configuration, TLS, alert routing and outage/recovery verification.
+8. No Loki push adapter or Loki delivery worker was found in the inspected Central source.
+9. The current generic telemetry path stores raw metrics and logs in MySQL. MySQL therefore currently acts as telemetry intake/staging and also retains raw records; Prometheus TSDB history is populated only when the scrape exporter is successfully scraped.
+10. Log ingestion remains disabled by default through `NADI_TELEMETRY_LOGS_ENABLED=false`.
+11. PR #8 merged Ed25519 Activation Grant signing into Central, matching the current Agent verifier algorithm. PHP and a Go verifier-compatible test vector pass CI; a live Agent binary activation/acknowledgement E2E has not yet been run.
+12. The current Agent verifier accepts one active key ID/public key only; there is no multi-key overlap/grace-period support. Key rotation therefore requires a coordinated maintenance window and grant re-issuance.
+13. The inspected Agent release is `v0.7.5-dev`, explicitly a development/pilot candidate rather than a production release. It does not yet emit Nginx-specific or HTTP request/error event streams; HTTP event redaction is absent; Bridge metrics, queue and scheduler endpoints return HTTP 501; status-specific handling for 401/403/409/410/413/422/429 and HTTP 413 batch splitting are incomplete.
+14. The Agent Side Monitoring Specification describes JSONL+gzip batches, while the inspected Agent sender currently posts a JSON batch envelope with `Content-Type: application/json`; the Central endpoint currently validates that JSON envelope. Current Agent source and Central source therefore match each other, but the written Agent specification differs. Resolve and version this wire-contract discrepancy before production rollout; do not silently change either side.
+8. The stream registry recognizes these streams but has no capability mapping for them, so authorization rejects them:
+   - `nginx_access_logs`
+   - `application_events`
+   - `nginx_http_requests`
+   - `application_http_requests`
+   - `application_http_errors`
+
+The Agent-side specification describes metrics, logs, and events operations, but its current activation capability list is a target list and is not proof that every collector or stream is implemented. The capability mapping for the currently unmapped streams must be explicitly approved.
+
+## 3. Recommended delivery model
+
+### 3.1 Agent acknowledgement boundary
+
+**Recommendation:** Keep the existing Agent-facing HTTP 200 contract, but define `accepted` as:
+
+> Central has durably committed the batch and its idempotency state in MySQL. For every approved push-based destination, the same transaction must also commit durable outbox records. The existing Prometheus scrape/exporter remains useful for current state and exporter health; if complete historical sample delivery is required, the transaction must also enqueue Prometheus Remote Write delivery.
+
+It must not mean that Prometheus and Loki have already confirmed delivery.
+
+This preserves the current Agent-facing success response while making the meaning of acceptance explicit. The Agent may remove the corresponding local spool item only after receiving the successful Central acknowledgement. If the MySQL transaction fails, Central returns an error and the Agent retains/retries the batch.
+
+### 3.2 Durable backend outbox
+
+Add a durable per-batch/per-backend delivery record in the same database transaction as ingestion for approved push-based backends. The recommended targets are Prometheus Remote Write for complete metric sample history and Loki Push API for logs. Keep the existing Prometheus scrape/exporter for current-state monitoring and exporter health. A proposed delivery record should track:
+
+- Agent and batch identity.
+- Target backend (`prometheus_remote_write` or `loki`; only after protocol approval).
+- Delivery state (`pending`, `processing`, `delivered`, `retry_wait`, `quarantined`).
+- Attempt count and next-attempt timestamp.
+- Lease/processing timestamp to recover abandoned workers.
+- First/last attempt timestamps.
+- Delivered timestamp.
+- Sanitized last error code/message.
+
+A backend dispatcher processes pending deliveries independently. A Prometheus outage must not block Agent ingestion or Loki delivery, and a Loki outage must not block Prometheus delivery. The existing scrape exporter continues to report current Central/Agent state but is not the durable replay mechanism.
+
+The delivery identity must be idempotent, for example one unique delivery per `(agent_id, batch_id, backend)`. A retry must not create duplicate backend samples/log entries where the backend supports idempotency or deterministic deduplication.
+
+The existing telemetry record/event rows remain bounded staging data until all required backend deliveries are complete and the configured staging/idempotency retention period has elapsed. They must not become the final long-term store for raw metrics or logs.
+
+### 3.3 Backend write and scrape protocols
+
+**Prometheus:** retain the existing Central scrape/exporter path for current state and exporter health:
+
+- Prometheus scrapes `/api/internal/prometheus/metrics` over the internal network.
+- The endpoint requires a dedicated Bearer token and returns Prometheus text exposition.
+- Central reads the latest authorized metric snapshots from MySQL and maps them to bounded Prometheus metrics.
+- The exporter re-checks the current Agent/application grant and capability before exposing samples; suspended, revoked, expired, or unauthorized scopes must stop appearing as active samples.
+- Configure and verify a scrape interval compatible with the Agent collection/push cadence. The Agent control polling baseline is 30 seconds; the actual production scrape interval must be confirmed and tested.
+
+**Metric fidelity limitation:** the existing exporter selects only the highest sequence record per stream. If Prometheus is unavailable or multiple Agent samples arrive between successful scrapes, intermediate samples are not replayed. This is a current-state scrape design, not complete historical sample delivery.
+
+**Recommendation for the stated goal of retaining all Agent metric samples:** approve a durable Central outbox and Prometheus Remote Write delivery for every accepted metrics batch, with per-batch idempotency and retry. Keep the scrape exporter for current-state health and operator visibility. Do not implement Remote Write until the Prometheus receiver, authentication, TLS and ACK boundary are approved. Database probe status and failure counters are now exported from a transactional state table; the live scrape path still needs end-to-end verification.
+
+**Loki:** use the Loki Push API from Central for approved log streams. Apply a strict label allowlist and place high-cardinality or request-specific values in structured metadata/log content, not labels.
+
+Candidate stable labels include the approved stream, environment, server identity, and application identity. Request IDs, record IDs, user IDs, arbitrary URI paths, and other per-request values must not become labels.
+
+The Loki protocol recommendation remains unapproved until the owner confirms backend endpoint, authentication, TLS, and receiver configuration.
+
+### 3.4 Events and HTTP request telemetry
+
+Keep application/system events and HTTP request/error events in MySQL or the event store selected by the owner. Do not route them to Prometheus as arbitrary event payloads.
+
+Before enabling the currently unmapped streams, approve their capability names and scope:
+- server-scoped: Nginx access/request streams;
+- application-scoped: application events and application HTTP streams.
+
+Server-scoped streams must not carry `application_id`; application-scoped streams must be bound to an approved application belonging to the authenticated Agent.
+
+### 3.5 Retry and failure handling
+
+Proposed behavior:
+
+- Retry transient backend failures with bounded exponential backoff and jitter.
+- Persist every attempt and next-attempt time.
+- Recover `processing` deliveries whose lease expires.
+- Quarantine deliveries that exceed the configured retry/age threshold; do not silently discard them.
+- Expose pending count, oldest pending age, retry count, quarantine count, and last successful delivery time per backend.
+- Alert Central operators when delivery lag or quarantine crosses an approved threshold.
+- Preserve batch and record idempotency across Agent retries and backend retries.
+
+Exact retry counts, maximum age, and alert thresholds remain configuration decisions.
+
+### 3.6 Retention
+
+Use one Central policy taxonomy and apply it to the correct storage engine:
+
+| Data class | Destination | Retention owner |
+|---|---|---|
+| Metrics | Prometheus | Central policy mapped to Prometheus TSDB retention |
+| System/application logs | Loki | Central policy mapped to Loki compactor retention |
+| Events and HTTP request/error events | MySQL/event store | Central cleanup service |
+| Backend outbox/staging | MySQL | Delete only after delivery completion and dedupe safety window |
+| Idempotency keys | MySQL | Separate dedupe retention; must outlive retry/replay windows |
+| Unresolved gaps | MySQL | Never delete while unresolved |
+| Alerts and alert history | Alertmanager + Central metadata | Explicit alert retention policy |
+| Audit/approval history | MySQL | Excluded from telemetry cleanup |
+| Notification delivery logs | MySQL | Explicit notification retention policy |
+
+No Prometheus or Loki retention change should be issued until the global policy mapping and operational safeguards are approved.
+
+## 4. Required decisions
+
+1. **ACK boundary:** approve or reject the recommendation that Agent HTTP 200 means durable Central transaction + outbox commit, while Prometheus/Loki delivery is asynchronous.
+2. **Metric fidelity and Prometheus protocol:** choose latest-state scrape only (best effort) or approve durable outbox + Prometheus Remote Write for complete sample history. The current exporter alone cannot guarantee every Agent sample is stored.
+3. **Loki protocol:** approve Loki Push API and the stable label allowlist.
+4. **Stream capabilities:** approve capability names and server/application scope for the currently unmapped event and HTTP streams.
+5. **Retry/quarantine:** approve retry age/count and operator alert thresholds.
+6. **Retention taxonomy:** approve the data classes and their backend-specific retention mapping.
+7. **Deployment prerequisites:** provide/confirm non-production Prometheus/Loki endpoints, authentication, TLS, and supported server versions.
+8. **Agent/Central wire contract:** approve the current JSON batch envelope or the JSONL+gzip format in the Agent-side specification, then publish a versioned compatibility matrix.
+9. **Metric sample fidelity:** explicitly state whether every accepted Agent sample must reach Prometheus or whether latest-state scrape is sufficient.
+
+## 5. Implementation gates after approval
+
+1. Record the approved decisions in an ADR; do not treat this proposal as approval.
+2. Add outbox schema and transactional enqueue tests.
+3. Implement Prometheus and Loki adapters behind configuration flags.
+4. Add retry, lease recovery, idempotency, quarantine, and failure-injection tests.
+5. Add capability mapping and Agent compatibility tests for approved streams.
+6. Validate database metric queries and alert rules against a non-production workload; CI currently validates query generation, rule syntax and the scrape path only.
+7. Add Central UI/API visibility for ingestion and backend delivery health.
+8. Run non-production end-to-end tests with real Prometheus and Loki services.
+9. Verify retention behavior against test datasets and prove audit/approval data is excluded.
+10. Only after these gates, prepare a production deployment plan. No production host or database action is part of this proposal.
+
+## 6. Explicit non-actions
+
+- No Prometheus or Loki endpoint was contacted.
+- No production server, database, or configuration was accessed or changed.
+- No Agent repository was modified.
+- No new Agent protocol or ACK behavior was implemented.
+- No telemetry was fabricated.
