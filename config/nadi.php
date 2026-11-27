@@ -9,12 +9,12 @@ return [
 
         'private_key_path' => env(
             'NADI_ACTIVATION_PRIVATE_KEY',
-            '/etc/nadi-central/keys/activation-private.pem'
+            '/etc/nadi-central/keys/activation-ed25519-seed.key'
         ),
 
         'public_key_path' => env(
             'NADI_ACTIVATION_PUBLIC_KEY',
-            '/etc/nadi-central/keys/activation-public.pem'
+            '/etc/nadi-central/keys/activation-ed25519-public.key'
         ),
 
         'grant_lifetime_days' => (int) env(
