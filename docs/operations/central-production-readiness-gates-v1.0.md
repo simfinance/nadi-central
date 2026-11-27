@@ -92,12 +92,15 @@ Do not enable this flag in production until:
 
 ### 3.5 Agent collector completeness
 
-The inspected Agent and Laravel Bridge source is not yet a complete implementation of every stream named in the specifications:
+The inspected Agent release is `v0.7.5-dev` and explicitly identifies itself as an installable development/pilot candidate, not a production release. It is not yet a complete implementation of every stream named in the specifications:
+- Nginx-specific streams and HTTP request/error event streams are not collected or emitted.
+- HTTP event redaction is not implemented because those event streams are not emitted.
 - The Bridge metrics endpoint currently returns HTTP 501.
-- Queue and scheduler endpoints currently return HTTP 501.
-- Agent stream support for events and HTTP request/error telemetry is not fully verified.
+- Queue and scheduler endpoints currently return HTTP 501; the Agent does not fabricate their data.
+- Agent HTTP status-specific stop/quarantine/retry policy is incomplete for 401, 403, 409, 410, 413, 422 and 429.
+- Automatic batch splitting for HTTP 413 and pre-send size splitting are not implemented.
+- No live Agent-to-Central E2E or Central storage verification has been performed.
 - Central intentionally rejects several currently unmapped event/HTTP stream names.
-- Agent release notes describe the current branch as development work, not a production-ready release.
 
 A production rollout must use an explicitly identified Agent release and verify each capability/collector against the Central capability registry. Do not treat a capability name in a grant as proof that its collector is implemented.
 
