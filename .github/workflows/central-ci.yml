@@ -45,6 +45,11 @@ jobs:
           extensions: bcmath, curl, gd, intl, mbstring, pdo_mysql, xml, zip
           coverage: none
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
@@ -61,3 +66,7 @@ jobs:
 
       - name: Run automated tests
         run: php artisan test
+
+      - name: Verify Agent Ed25519 compatibility
+        working-directory: tests/AgentCompatibility
+        run: go test ./...

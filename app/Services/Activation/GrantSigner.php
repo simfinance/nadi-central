@@ -8,40 +8,23 @@ class GrantSigner
 {
     public function sign(array $payload): string
     {
-        $privateKeyPath = config(
-            'nadi.activation.private_key_path'
+        $secretKey = $this->readSecretKey();
+        $publicKey = $this->readPublicKey();
+        $derivedPublicKey = sodium_crypto_sign_publickey_from_secretkey(
+            $secretKey
         );
 
-        $privateKeyContent = $this->readKey($privateKeyPath);
-
-        $privateKey = openssl_pkey_get_private(
-            $privateKeyContent
-        );
-
-        if (!$privateKey)
+        if (!hash_equals($publicKey, $derivedPublicKey))
         {
             throw new RuntimeException(
-                'Unable to load NADI activation private key.'
+                'Activation Grant Ed25519 public and private keys do not match.'
             );
         }
 
-        $message = $this->canonicalJson($payload);
-
-        $signature = '';
-
-        $result = openssl_sign(
-            $message,
-            $signature,
-            $privateKey,
-            0
+        $signature = sodium_crypto_sign_detached(
+            $this->canonicalJson($payload),
+            $secretKey
         );
-
-        if (!$result)
-        {
-            throw new RuntimeException(
-                'NADI activation grant signing failed.'
-            );
-        }
 
         return base64_encode($signature);
     }
@@ -49,59 +32,133 @@ class GrantSigner
     public function verify(
         array $payload,
         string $base64Signature
-    ): bool
-    {
-        $publicKeyPath = config(
-            'nadi.activation.public_key_path'
-        );
-
-        $publicKeyContent = $this->readKey($publicKeyPath);
-
-        $publicKey = openssl_pkey_get_public(
-            $publicKeyContent
-        );
-
-        if (!$publicKey)
-        {
-            throw new RuntimeException(
-                'Unable to load NADI activation public key.'
-            );
-        }
+    ): bool {
+        $publicKey = $this->readPublicKey();
 
         $signature = base64_decode(
             $base64Signature,
             true
         );
 
-        if ($signature === false)
+        if (
+            $signature === false
+            || strlen($signature) !== SODIUM_CRYPTO_SIGN_BYTES
+        )
         {
             return false;
         }
 
-        $message = $this->canonicalJson($payload);
-
-        $result = openssl_verify(
-            $message,
+        return sodium_crypto_sign_verify_detached(
             $signature,
-            $publicKey,
-            0
+            $this->canonicalJson($payload),
+            $publicKey
         );
-
-        return $result === 1;
     }
 
     public function canonicalJson(array $payload): string
     {
         $normalized = $this->normalize($payload);
 
-        $json = json_encode(
+        return json_encode(
             $normalized,
             JSON_UNESCAPED_SLASHES
                 | JSON_UNESCAPED_UNICODE
                 | JSON_THROW_ON_ERROR
         );
+    }
 
-        return $json;
+    private function readSecretKey(): string
+    {
+        if (!function_exists('sodium_crypto_sign_seed_keypair'))
+        {
+            throw new RuntimeException(
+                'The PHP sodium extension is required for Activation Grant Ed25519 signing.'
+            );
+        }
+
+        $content = $this->readKeyFile(
+            config('nadi.activation.private_key_path')
+        );
+
+        if (strlen($content) === SODIUM_CRYPTO_SIGN_SEEDBYTES)
+        {
+            $keyPair = sodium_crypto_sign_seed_keypair($content);
+
+            return sodium_crypto_sign_secretkey($keyPair);
+        }
+
+        if (strlen($content) === SODIUM_CRYPTO_SIGN_SECRETKEYBYTES)
+        {
+            return $content;
+        }
+
+        $decoded = base64_decode(trim($content), true);
+
+        if (
+            $decoded !== false
+            && strlen($decoded) === SODIUM_CRYPTO_SIGN_SEEDBYTES
+        )
+        {
+            $keyPair = sodium_crypto_sign_seed_keypair($decoded);
+
+            return sodium_crypto_sign_secretkey($keyPair);
+        }
+
+        if (
+            $decoded !== false
+            && strlen($decoded) === SODIUM_CRYPTO_SIGN_SECRETKEYBYTES
+        )
+        {
+            return $decoded;
+        }
+
+        throw new RuntimeException(
+            'Activation Grant private key must be a raw or base64 Ed25519 seed/secret key.'
+        );
+    }
+
+    private function readPublicKey(): string
+    {
+        if (!function_exists('sodium_crypto_sign_verify_detached'))
+        {
+            throw new RuntimeException(
+                'The PHP sodium extension is required for Activation Grant Ed25519 verification.'
+            );
+        }
+
+        $content = $this->readKeyFile(
+            config('nadi.activation.public_key_path')
+        );
+
+        if (strlen($content) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES)
+        {
+            throw new RuntimeException(
+                'Activation Grant public key must be a raw 32-byte Ed25519 public key.'
+            );
+        }
+
+        return $content;
+    }
+
+    private function readKeyFile(string $path): string
+    {
+        if ($path === '' || !is_file($path))
+        {
+            throw new RuntimeException(
+                'Activation Grant key file does not exist.'
+            );
+        }
+
+        $content = file_get_contents($path);
+
+        if ($content === false || $content === '')
+        {
+            throw new RuntimeException(
+                'Unable to read Activation Grant key file.'
+            );
+        }
+
+        return $content;
     }
 
     private function normalize(array $value): array
@@ -114,34 +171,11 @@ class GrantSigner
             }
         }
 
-        $isList = array_is_list($value);
-
-        if (!$isList)
+        if (!array_is_list($value))
         {
             ksort($value, SORT_STRING);
         }
 
         return $value;
-    }
-
-    private function readKey(string $path): string
-    {
-        if (!is_file($path))
-        {
-            throw new RuntimeException(
-                'NADI activation key file does not exist.'
-            );
-        }
-
-        $content = file_get_contents($path);
-
-        if ($content === false)
-        {
-            throw new RuntimeException(
-                'Unable to read NADI activation key file.'
-            );
-        }
-
-        return $content;
     }
 }
