@@ -130,6 +130,7 @@ CI imported `database/schema/nadi-baseline.sql` and successfully ran the complet
 The telemetry migration creates tables only when absent. It does not reconcile an existing table with a different manually-created schema.
 
 Before any non-production or production migration:
+- Verify the database vendor/version. CI uses MySQL 8.4.13; the migration uses MySQL collation `utf8mb4_0900_ai_ci`, so do not assume MariaDB or an older MySQL-compatible server is supported.
 - Capture and review `SHOW CREATE TABLE` for all six telemetry tables and the new database probe state table.
 - Compare indexes, foreign keys, collations, column types and datetime precision with the repository migration.
 - Take and verify a database backup.
