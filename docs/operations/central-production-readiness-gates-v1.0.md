@@ -85,7 +85,9 @@ The exporter rechecks current Agent/application grant and capability before expo
 - Test that suspended, revoked, expired and unauthorized applications stop producing active samples.
 - Test Prometheus outage/recovery and confirm Central ingestion remains available.
 
-No Prometheus endpoint was contacted during this repository work.
+The exporter intentionally does not cache authorized exposition so grant suspension/revocation is reflected on the next scrape. Each scrape therefore performs MySQL reads and current grant/capability checks. Before production, load-test the endpoint at the expected Agent fleet size and scrape interval; determine whether a bounded data cache with explicit authorization invalidation is required.
+
+No target Prometheus endpoint was contacted during this repository work.
 
 ### 3.4 Loki and logs
 
