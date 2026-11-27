@@ -56,8 +56,8 @@ jobs:
       - name: Load approved Central baseline schema
         run: mysql --host=127.0.0.1 --port=3306 --user=root --password=root nadi < database/schema/nadi-baseline.sql
 
-      - name: Apply telemetry storage migration
-        run: php artisan migrate --path=database/migrations/2026_11_27_000001_create_nadi_telemetry_storage_tables.php --force
+      - name: Apply all Central migrations
+        run: php artisan migrate --force
 
       - name: Run automated tests
         run: php artisan test
