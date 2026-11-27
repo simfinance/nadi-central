@@ -87,8 +87,7 @@ jobs:
             sleep 1
           done
 
-          grep -q '^nadi_prometheus_exporter_up 1
- /tmp/nadi-central-metrics.txt
+          grep -q 'nadi_prometheus_exporter_up 1' /tmp/nadi-central-metrics.txt
 
       - name: Verify real Prometheus scrape
         run: |
