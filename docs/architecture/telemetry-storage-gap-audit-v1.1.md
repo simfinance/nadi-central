@@ -64,7 +64,7 @@ The ingestion and cleanup code directly queries or writes these tables. Therefor
 
 This finding does not prove that the tables are absent from an existing Central database. They may have been created by manually executed SQL or another untracked process. Live database state was not available for this audit.
 
-Required follow-up: obtain the exact executed SQL/schema delta and reconcile it into reviewed, forward-only migrations. Do not create guessed table definitions from service queries alone, and do not use destructive schema replacement.
+Follow-up completed at the source-review level: complete CREATE TABLE definitions were supplied and reconciled with the ingestion source (finding 3.7). A forward-only migration is available for review in draft PR #3. Existing live database state, schema drift, migration execution, and deployment readiness remain unverified. Do not use destructive schema replacement.
 
 ### 3.2 Current ingestion persists raw telemetry in MySQL
 
@@ -145,6 +145,27 @@ This is a static source finding; the command was not executed. The command is no
 
 `config/nadi.php` sets `telemetry.logs_enabled` from `NADI_TELEMETRY_LOGS_ENABLED`, defaulting to false. This is consistent with the security contract's deployment gate. Keep it disabled until Agent schema compatibility, Central tests, and non-production end-to-end verification are completed.
 
+### 3.7 Supplied DDL reconciled with ingestion source
+
+The project owner supplied complete `CREATE TABLE` definitions for all six telemetry tables listed in finding 3.1. The definitions were reviewed against the Central ingestion source, including batch replay, stream resolution, record idempotency, generic record persistence, HTTP event persistence, sequence watermarks, and gap creation/resolution.
+
+The reviewed column and constraint contract is consistent with the fields used by the inspected ingestion service:
+
+- Batch persistence uses the supplied batch identity, payload hash, status, counters, timestamps, and JSON acknowledgement.
+- Stream resolution uses the supplied agent/application scope, stream key/name/source, sequence watermarks, and observed/received timestamps.
+- Record idempotency uses the supplied agent/record and stream/sequence unique constraints.
+- Generic telemetry persistence uses the supplied batch/stream/agent/application references, sequence, observed/collected timestamps, and JSON data.
+- HTTP event persistence uses the supplied HTTP metadata fields, including sequence, status, sizes, durations, sanitized request URI, and JSON metadata.
+- Sequence-gap tracking uses the supplied nullable sequence range, status, and detected/resolved timestamps.
+
+A forward-only Laravel migration has been prepared separately in draft PR #3:
+
+- Branch: `feature/central-telemetry-schema-migration`
+- File: `database/migrations/2026_11_27_000001_create_nadi_telemetry_storage_tables.php`
+- PR: https://github.com/simfinance/nadi-central/pull/3
+
+The migration creates each telemetry table only when it is absent. It does not alter an existing table, reconcile schema drift, or drop telemetry data on rollback. It depends on the base schema already providing `nadi_agents` and `nadi_applications`. The migration has not yet been executed against a database, and no runtime or test result is claimed.
+
 ## 4. Decisions that remain open
 
 The following are not established by the Master Architecture and must remain explicit open decisions:
@@ -190,6 +211,6 @@ During this audit:
 
 ## 7. Checkpoint
 
-The current Central branch has an Agent-facing telemetry intake and MySQL persistence implementation, but the checked-in schema/migrations do not reproduce the telemetry tables used by that implementation. The scheduled MySQL retention path is identifiable, while a second overlapping prune service is present but not scheduled in the inspected console schedule. Prometheus/Loki write and retention integration remain unimplemented in the inspected source.
+The current Central branch has an Agent-facing telemetry intake and MySQL persistence implementation. The checked-in baseline schema and migrations initially did not reproduce the six telemetry tables used by that implementation. Complete DDL has since been supplied and reconciled with ingestion source; a forward-only migration is under review in draft PR #3. The scheduled MySQL retention path is identifiable, while a second overlapping prune service is present but not scheduled in the inspected console schedule. Prometheus/Loki write and retention integration remain unimplemented in the inspected source.
 
 Next work must reconcile the actual executed schema and obtain explicit technical decisions for backend write and ACK durability before implementing the storage adapter.
