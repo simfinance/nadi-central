@@ -1,0 +1,27 @@
+{
+    "private_seed_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "public_key_base64": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+    "signature_base64": "DZ2Y4T70w+qmVx2PE5tT4NRO/Kv6cUKj+6J0Ii0MsqQF1ZAgY7EpISVBCNlTHjm6VjM6qfiuKo/dmwe+ijewBw==",
+    "canonical_json": "{\"agent_id\":\"00000000-0000-4000-8000-000000000004\",\"application_id\":\"00000000-0000-4000-8000-000000000003\",\"capabilities\":[\"server_metrics\",\"application_metrics\",\"database_monitoring\"],\"expires_at\":\"2026-12-27T00:00:00.000000Z\",\"grant_id\":\"00000000-0000-4000-8000-000000000001\",\"grant_version\":7,\"issued_at\":\"2026-11-27T00:00:00.000000Z\",\"key_id\":\"nadi-central-test-ed25519\",\"metadata\":{\"a\":\"é\",\"z\":2},\"monitoring_enabled\":true,\"registration_id\":\"00000000-0000-4000-8000-000000000002\",\"server_id\":\"00000000-0000-4000-8000-000000000005\"}",
+    "payload": {
+        "grant_id": "00000000-0000-4000-8000-000000000001",
+        "grant_version": 7,
+        "key_id": "nadi-central-test-ed25519",
+        "registration_id": "00000000-0000-4000-8000-000000000002",
+        "application_id": "00000000-0000-4000-8000-000000000003",
+        "agent_id": "00000000-0000-4000-8000-000000000004",
+        "server_id": "00000000-0000-4000-8000-000000000005",
+        "issued_at": "2026-11-27T00:00:00.000000Z",
+        "expires_at": "2026-12-27T00:00:00.000000Z",
+        "capabilities": [
+            "server_metrics",
+            "application_metrics",
+            "database_monitoring"
+        ],
+        "monitoring_enabled": true,
+        "metadata": {
+            "z": 2,
+            "a": "é"
+        }
+    }
+}
