@@ -22,6 +22,19 @@ class TelemetryIngestionTest extends TestCase
         parent::setUp();
 
         $this->agent = $this->createAgent();
+
+        $now = now('UTC')->format('Y-m-d H:i:s.u');
+
+        DB::table('nadi_retention_policies')->insert([
+            'id' => (string) Str::uuid(),
+            'data_type' => 'telemetry_batches',
+            'retention_days' => 30,
+            'enabled' => 1,
+            'description' => 'Telemetry ingestion test policy.',
+            'updated_by' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     public function test_server_metrics_batch_is_accepted_and_stored(): void
