@@ -10,6 +10,7 @@ This rule set evaluates the NADI Central metrics already exposed by the Central 
 - Nginx process state.
 - Application health probes and probe latency.
 - Network errors and dropped packets.
+- Laravel database connection status, probe latency, last successful probe timestamp and cumulative probe failures.
 
 This rule set is observability-only. It does not restart services, modify applications, or perform remediation.
 
@@ -57,6 +58,10 @@ The numeric thresholds below are initial operational defaults, not a finalized N
 | Nginx process down | Exported value = 0 | 2 minutes |
 | Application probe down | Exported value = 0 | 5 minutes |
 | Network errors / packet drops | Any increase over 5 minutes | 1 minute |
+| Laravel database connection down | Connection status = 0 | 2 minutes |
+| Laravel database probe failures | Any increase over 5 minutes | 1 minute |
+| Laravel database probe latency | > 2 seconds | 10 minutes |
+| Laravel database last success | Older than 5 minutes | 2 minutes |
 
 Tune these values after observing normal workload patterns and operational requirements. Do not interpret a missing time series as a healthy value.
 
@@ -64,7 +69,7 @@ Tune these values after observing normal workload patterns and operational requi
 
 The rules intentionally use only metric families currently emitted by `PrometheusMetricsController`.
 
-Database connection, queue worker, and scheduler alerts are not included in this version. Although the application probe payload has probe names for these checks, their presence in a probe definition does not establish that every application currently exports a corresponding sample. Add dedicated rules only after the relevant series and label behavior are confirmed from live scrape data.
+Laravel database connection alerts are now included using the dedicated `database_metrics` stream and the five `laravel_db_*` metric families. Queue worker and scheduler alerts remain excluded: their Bridge endpoints currently return HTTP 501 and their presence in a probe definition does not establish that an application exports a real sample. Validate database alert thresholds against non-production workload before adopting them as production policy.
 
 The `nadi_prometheus_exporter_up` metric indicates successful exporter rendering when present. Prometheus scrape availability is therefore evaluated using its built-in `up{job="nadi-central"}` series.
 

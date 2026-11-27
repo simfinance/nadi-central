@@ -72,6 +72,14 @@ jobs:
         working-directory: tests/AgentCompatibility
         run: go test ./...
 
+      - name: Validate Prometheus alert rules
+        run: |
+          docker run --rm \
+            --entrypoint=/bin/promtool \
+            -v "$GITHUB_WORKSPACE/docs/operations/prometheus/nadi-alert-rules.yml:/tmp/nadi-alert-rules.yml:ro" \
+            prom/prometheus:v3.5.0 \
+            check rules /tmp/nadi-alert-rules.yml
+
       - name: Start Central HTTP server
         run: |
           nohup php artisan serve --host=0.0.0.0 --port=8000 > /tmp/nadi-central-server.log 2>&1 &

@@ -121,3 +121,43 @@ groups:
             annotations:
                 summary: "Network packets are being dropped"
                 description: "NADI Agent reported packet drops on {{ $labels.hostname }} interface {{ $labels.interface }}."
+
+          - alert: NadiLaravelDatabaseConnectionDown
+            expr: laravel_db_connection_status == 0
+            for: 2m
+            labels:
+                severity: critical
+                component: database
+            annotations:
+                summary: "Laravel database connection is down"
+                description: "Database probe for application {{ $labels.application_name }} on {{ $labels.hostname }} has failed for more than 2 minutes."
+
+          - alert: NadiLaravelDatabaseProbeFailures
+            expr: increase(laravel_db_probe_failures_total[5m]) > 0
+            for: 1m
+            labels:
+                severity: warning
+                component: database
+            annotations:
+                summary: "Laravel database probe failures detected"
+                description: "Central recorded failed database probes for application {{ $labels.application_name }} on {{ $labels.hostname }} during the last 5 minutes."
+
+          - alert: NadiLaravelDatabaseConnectionLatencyHigh
+            expr: laravel_db_connection_duration_seconds > 2
+            for: 10m
+            labels:
+                severity: warning
+                component: database
+            annotations:
+                summary: "Laravel database probe latency is high"
+                description: "Database probe latency for application {{ $labels.application_name }} on {{ $labels.hostname }} has remained above 2 seconds for 10 minutes."
+
+          - alert: NadiLaravelDatabaseLastSuccessStale
+            expr: time() - laravel_db_last_success_timestamp > 300
+            for: 2m
+            labels:
+                severity: critical
+                component: database
+            annotations:
+                summary: "Laravel database has no recent successful probe"
+                description: "The last successful database probe for application {{ $labels.application_name }} on {{ $labels.hostname }} is older than 5 minutes."

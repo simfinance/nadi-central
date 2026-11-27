@@ -57,10 +57,15 @@ Supported optional identity filters are `server_id`, `agent_id`, and `applicatio
 - `server_uptime`
 - `application_probe_up`
 - `application_probe_latency`
+- `database_connection_status`
+- `database_connection_duration`
+- `database_last_success`
+- `database_probe_failures`
+- `database_query_success`
 - `telemetry_stream_age`
 - `telemetry_stream_up`
 
-Network receive/transmit queries derive bytes per second from the existing cumulative counter using a fixed five-minute PromQL rate window.
+Network receive/transmit queries derive bytes per second from the existing cumulative counter using a fixed five-minute PromQL rate window. Database metric queries are additionally gated by `nadi_telemetry_stream_up` for the `database_metrics` stream, matched on `agent_id` and `application_id`, so stale database probe values are not presented as healthy live data.
 
 ## Query bounds and resilience
 
@@ -99,4 +104,4 @@ After deployment, refresh Laravel's configuration cache using the normal Central
 
 This phase adds the server-side query gateway only. It does not add monitoring pages, Grafana embedding/proxying, dashboard provisioning, Alertmanager integration, or automatic remediation. It does not change any Agent repository, Agent contract, telemetry schema, or existing Prometheus scrape configuration.
 
-No tests, migrations, production commands, or deployment actions are performed by this repository change.
+Unit tests cover the database metric catalog, UUID filter validation and freshness-gated PromQL generation. CI also runs an isolated Prometheus 3.5 scrape against the Central exporter. No production commands or deployment actions are performed by this repository change.

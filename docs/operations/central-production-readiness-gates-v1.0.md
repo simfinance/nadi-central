@@ -21,7 +21,7 @@ These results do **not** establish production readiness. No production server, d
 | Activation schema | Acknowledgement columns/index and application suspension timestamp added | CI verified |
 | Database probe state | Transactional per-application status, last success, latency, sequence and cumulative failure counter table | CI verified |
 | Retention safety | Record idempotency keys are retained while matching telemetry/event rows exist in both cleanup implementations | CI verified |
-| Prometheus exporter | Bearer-protected exposition; current Agent/application authorization rechecked before stream samples are exposed; ephemeral Prometheus 3.5 successfully scrapes and queries the endpoint in CI | PHP + real Prometheus CI verified |
+| Prometheus exporter | Bearer-protected exposition; current Agent/application authorization rechecked before stream samples are exposed; ephemeral Prometheus 3.5 successfully scrapes and queries the endpoint in CI; database metrics are queryable and freshness-gated | PHP + real Prometheus CI verified |
 | Database metrics | Five Laravel DB metrics emitted from persisted probe state | PHP feature test verified |
 | Activation signing | Central uses Ed25519; deterministic Go compatibility vector matches Agent canonicalization and signature verification algorithm | PHP + Go CI verified |
 | Key generation | Non-overwriting Artisan key-generation command; private seed mode 0600, public key mode 0644 | PHP feature test verified |
@@ -38,6 +38,7 @@ Relevant merged changes:
 - PR #8: Ed25519 Activation Grant compatibility.
 - PR #9: production readiness gates.
 - PR #10: real Prometheus scrape verification in CI.
+- PR #13: database metrics query catalog, freshness filtering, database alert rules and `promtool` validation in CI.
 - PR #5 remains a draft decision proposal; it is not an approved ADR.
 
 ## 3. Blocking gates
@@ -151,10 +152,10 @@ Prometheus/Loki retention operations have not been implemented or executed.
 
 ### 3.9 Alerts and operator visibility
 
-Central has alert rule files, an Alertmanager webhook path and Prometheus query services, but the complete production alert pipeline has not been verified.
+Central has alert rule files, an Alertmanager webhook path and Prometheus query services. PR #13 adds database probe metrics to the query catalog, gates those queries on database stream freshness, adds database connection/latency/failure/last-success alert rules, and validates the rule file with `promtool` in CI. The complete production alert pipeline has not been verified.
 
 Required evidence:
-- Prometheus rules loaded and evaluated.
+- Prometheus rules loaded and evaluated by the target Prometheus instance. CI validates rule syntax with `promtool`, but does not prove production rule evaluation.
 - Alertmanager routes and receivers validated.
 - Dedicated webhook token configured.
 - Test alert delivered to the intended notification channel.

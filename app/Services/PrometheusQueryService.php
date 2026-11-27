@@ -93,6 +93,41 @@ class PrometheusQueryService
             'unit' => 'milliseconds',
             'type' => 'gauge',
         ],
+        'database_connection_status' => [
+            'metric' => 'laravel_db_connection_status',
+            'title' => 'Laravel Database Connection',
+            'description' => 'Status koneksi database aplikasi berdasarkan probe terakhir.',
+            'unit' => 'boolean',
+            'type' => 'gauge',
+        ],
+        'database_connection_duration' => [
+            'metric' => 'laravel_db_connection_duration_seconds',
+            'title' => 'Laravel Database Probe Duration',
+            'description' => 'Durasi probe koneksi database aplikasi dalam detik.',
+            'unit' => 'seconds',
+            'type' => 'gauge',
+        ],
+        'database_last_success' => [
+            'metric' => 'laravel_db_last_success_timestamp',
+            'title' => 'Laravel Database Last Success',
+            'description' => 'Unix timestamp probe database terakhir yang berhasil.',
+            'unit' => 'unix_timestamp',
+            'type' => 'gauge',
+        ],
+        'database_probe_failures' => [
+            'metric' => 'laravel_db_probe_failures_total',
+            'title' => 'Laravel Database Probe Failures',
+            'description' => 'Total probe koneksi database yang gagal dan tercatat Central.',
+            'unit' => 'count',
+            'type' => 'counter',
+        ],
+        'database_query_success' => [
+            'metric' => 'laravel_db_query_success',
+            'title' => 'Laravel Database Query Success',
+            'description' => 'Status keberhasilan query SELECT 1 pada probe database.',
+            'unit' => 'boolean',
+            'type' => 'gauge',
+        ],
         'telemetry_stream_age' => [
             'metric' => 'nadi_telemetry_stream_age_seconds',
             'title' => 'Telemetry Stream Age',
@@ -300,6 +335,12 @@ class PrometheusQueryService
         {
             $expression = '(' . $expression . ') and on(agent_id) '
                 . '(nadi_telemetry_stream_up{stream="server_metrics"} == 1)';
+        }
+
+        if (str_starts_with($key, 'database_'))
+        {
+            $expression = '(' . $expression . ') and on(agent_id,application_id) '
+                . '(nadi_telemetry_stream_up{stream="database_metrics"} == 1)';
         }
 
         return $expression;

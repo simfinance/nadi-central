@@ -8,7 +8,7 @@ Status: Central-side read-only exporter implementation. Prometheus server instal
 - No Agent telemetry payload, stream name, capability, acknowledgement, or ingestion endpoint is changed.
 - The exporter reads the existing MySQL telemetry records and stream metadata.
 - The exporter does not write to telemetry tables and does not delete or transform stored records.
-- Only `server_metrics` and `application_metrics` streams are exported in this initial version.
+- `server_metrics`, `application_metrics`, and `database_metrics` streams are exported.
 - Logs and HTTP events are deliberately excluded.
 
 ## Endpoint
@@ -30,7 +30,7 @@ The endpoint fails closed when the token is empty. Configure a long random token
 NADI_PROMETHEUS_METRICS_TOKEN=<long-random-secret>
 ```
 
-Do not commit the token to Git. Keep the token in a root-readable Prometheus secret file as well. The endpoint uses constant-time token comparison and caches rendered metrics for five seconds.
+Do not commit the token to Git. Keep the token in a root-readable Prometheus secret file as well. The endpoint uses constant-time token comparison. It rechecks the current Agent/application grant and stream capability before exposing each stream and does not cache rendered exposition, so a recent suspension, revocation or expiry is not hidden behind a cached authorized response.
 
 Prometheus should reach this endpoint over HTTPS on a private network or through a reverse proxy restricted to the Prometheus host. Do not expose the endpoint broadly to the public internet.
 
@@ -60,12 +60,20 @@ Prometheus should reach this endpoint over HTTPS on a private network or through
 
 ### Application metrics
 
-- `nadi_application_probe_up` with `probe=health|info|database|metrics|queue|scheduler`
+- `nadi_application_probe_up` with `probe=health|info|database|metrics|queue|scheduler`, when the corresponding probe data is present in the application metrics payload
 - `nadi_application_probe_latency_milliseconds`
+
+### Laravel database probe metrics
+
+- `laravel_db_connection_status`: 1 when the latest database probe succeeded, otherwise 0
+- `laravel_db_connection_duration_seconds`: duration of the latest database probe
+- `laravel_db_last_success_timestamp`: Unix timestamp of the most recent successful probe
+- `laravel_db_probe_failures_total`: cumulative failed probes persisted by Central
+- `laravel_db_query_success`: 1 when the latest SELECT 1 probe succeeded, otherwise 0
 
 Common identity labels are `agent_id`, `server_id`, `hostname`, and `stream`. Application metrics also include `application_id`, `application_name`, and `environment`. Disk and network metrics include mount point/filesystem or interface labels.
 
-The exporter emits the latest stored sample per stream. Prometheus scrape timestamps represent exporter collection time; the separate stream freshness metrics expose the age of the Agent's last received record. Network byte and packet values are cumulative counters from the Agent's Linux kernel snapshot.
+The exporter selects the highest accepted sequence per stream, avoiding observed-time ties and Agent clock-skew ambiguity. Prometheus scrape timestamps represent exporter collection time; the separate stream freshness metrics expose the age of the Agent's last received record. Database probe counters and last-success state are updated transactionally during ingestion and retained independently from raw telemetry cleanup. Network byte and packet values are cumulative counters from the Agent's Linux kernel snapshot.
 
 ## Prometheus scrape configuration example
 
@@ -94,8 +102,8 @@ The secret file must contain only the bearer token and be readable by the Promet
 5. Verify the target is UP in Prometheus and inspect `/api/internal/prometheus/metrics` from the Prometheus host.
 6. Keep the existing Central telemetry ingestion and MySQL retention processes unchanged.
 
-No migration is introduced by this exporter. The telemetry table structure is already consumed by Central's existing ingestion and telemetry dashboard code. Verify the deployed telemetry-table indexes against the live database before increasing scrape frequency or fleet size.
+PR #7 introduced a forward-only migration for `nadi_telemetry_database_probe_states`, which stores the cumulative database probe counter and last-success state. The migration chain was validated on fresh MySQL 8.4 CI. Verify the live table schema and indexes before deployment.
 
 ## Verification boundary
 
-This change adds the Central exporter endpoint and configuration only. It does not install Prometheus, configure the production reverse proxy/firewall, provision the secret, or prove that a production scrape succeeds. No tests or production database operations are performed as part of this change.
+CI now starts an isolated Prometheus 3.5 instance, scrapes the Central endpoint with a test-only Bearer token, checks target health, and queries `nadi_prometheus_exporter_up=1`. This does not install or configure the target Prometheus deployment, reverse proxy/firewall, production secret, or production scrape job.
