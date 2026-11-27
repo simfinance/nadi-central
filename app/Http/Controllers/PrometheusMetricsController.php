@@ -2,23 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\NadiAgent;
+use App\Services\Telemetry\TelemetryAuthorizationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class PrometheusMetricsController extends Controller
 {
     private const STREAM_STALE_SECONDS = 120;
 
     private const STREAM_OFFLINE_SECONDS = 300;
-
-    public function __construct(
-        protected TelemetryAuthorizationService $authorization
-    )
-    {
-    }
 
     private const PROBES = [
         'health',
@@ -28,6 +24,12 @@ class PrometheusMetricsController extends Controller
         'queue',
         'scheduler',
     ];
+
+    public function __construct(
+        protected TelemetryAuthorizationService $authorization
+    )
+    {
+    }
 
     public function __invoke(Request $request): Response
     {
@@ -414,7 +416,8 @@ class PrometheusMetricsController extends Controller
     private function isStreamAuthorized(
         object $stream,
         array &$agentCache
-    ): bool {
+    ): bool
+    {
         $agentId = (string) $stream->agent_id;
 
         if (!array_key_exists($agentId, $agentCache))
@@ -457,7 +460,8 @@ class PrometheusMetricsController extends Controller
         array &$lines,
         array $labels,
         object $stream
-    ): void {
+    ): void
+    {
         if (!in_array($stream->database_status, ['ok', 'failed'], true))
         {
             return;
