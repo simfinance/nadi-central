@@ -65,16 +65,18 @@ Public key bukan secret, tetapi integritasnya wajib dijaga. Public key yang sala
 
 Verifier Agent pada source yang diaudit hanya menerima satu public key dan satu `key_id` aktif. Belum ada dukungan multi-key overlap/grace period di sisi Agent.
 
-Karena itu, rotasi tidak boleh dilakukan dengan hanya mengganti file Central. Rotasi memerlukan perubahan terkoordinasi:
+Karena itu, rotasi tidak boleh dilakukan dengan hanya mengganti file Central. Verifier saat ini tidak memiliki multi-key overlap, sehingga rotasi memerlukan jendela perubahan terkoordinasi dan berpotensi menghentikan monitoring sementara:
 
 1. Siapkan key pair baru tanpa menimpa key lama.
-2. Rencanakan jendela perubahan untuk memperbarui public key dan key ID pada seluruh Agent.
-3. Perbarui konfigurasi Agent dan Central dalam urutan yang telah diuji di non-produksi.
-4. Terbitkan ulang Activation Grant setelah seluruh Agent terkait menggunakan key baru.
-5. Verifikasi acknowledgement sukses dan monitoring aktif pada setiap scope.
-6. Cabut/revoke grant lama setelah proses transisi diverifikasi.
+2. Rencanakan maintenance window dan inventaris seluruh Agent yang memakai key ID lama.
+3. Siapkan distribusi public key baru dan perubahan konfigurasi Agent/Central yang telah diuji di non-produksi.
+4. Terapkan public key baru pada Agent dan private/public key baru pada Central dalam jendela perubahan yang sama.
+5. Revoke grant lama yang masih aktif melalui alur administrasi Central. Grant RSA lama tidak dapat diverifikasi oleh Ed25519 signer baru; `ActivationGrantService` juga akan menolak reuse grant lama yang signature-nya tidak valid.
+6. Terbitkan Activation Grant baru untuk setiap registration yang disetujui.
+7. Verifikasi acknowledgement sukses dan monitoring aktif pada setiap scope.
+8. Pertahankan grant lama dan approval log sebagai audit history; jangan menghapusnya.
 
-Sampai Agent mendukung beberapa key ID sekaligus, tidak boleh mengklaim rotasi tanpa downtime atau overlap aman.
+Sampai Agent mendukung beberapa key ID sekaligus, jangan mengklaim rotasi tanpa downtime atau overlap aman.
 
 ## 7. Migrasi dari key RSA lama
 
