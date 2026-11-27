@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\NadiAgent;
 use App\Models\NadiServer;
+use App\Services\Telemetry\TelemetryAuthorizationService;
 use App\Services\Telemetry\TelemetryIngestionService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -140,6 +141,27 @@ class AgentTelemetryEndpointTest extends TestCase
             'rejected_count' => 0,
             'replayed' => false,
         ];
+
+        $authorization = Mockery::mock(
+            TelemetryAuthorizationService::class
+        );
+
+        $authorization->shouldReceive('authorizeAndSanitize')
+            ->once()
+            ->withArgs(function (
+                array $receivedPayload,
+                NadiAgent $receivedAgent
+            ) use ($payload)
+            {
+                return $receivedPayload === $payload
+                    && $receivedAgent->id === $this->agent->id;
+            })
+            ->andReturn($payload);
+
+        $this->app->instance(
+            TelemetryAuthorizationService::class,
+            $authorization
+        );
 
         $service = Mockery::mock(
             TelemetryIngestionService::class

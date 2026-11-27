@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\V1\Nadi;
 
 use App\Http\Controllers\Controller;
+use App\Services\Telemetry\TelemetryAuthorizationService;
 use App\Services\Telemetry\TelemetryIngestionService;
+use App\Services\Telemetry\TelemetryStreamRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -14,7 +16,8 @@ use Throwable;
 class AgentTelemetryController extends Controller
 {
     public function __construct(
-        protected TelemetryIngestionService $ingestion
+        protected TelemetryIngestionService $ingestion,
+        protected TelemetryAuthorizationService $authorization
     )
     {
     }
@@ -70,19 +73,7 @@ class AgentTelemetryController extends Controller
                 'records.*.stream' => [
                     'required',
                     'string',
-                    Rule::in([
-                        'server_metrics',
-                        'nginx_metrics',
-                        'nginx_vhost_metrics',
-                        'nginx_access_logs',
-                        'nginx_error_logs',
-                        'application_metrics',
-                        'application_logs',
-                        'application_events',
-                        'nginx_http_requests',
-                        'application_http_requests',
-                        'application_http_errors',
-                    ]),
+                    Rule::in(TelemetryStreamRegistry::recognizedNames()),
                 ],
 
                 'records.*.sequence' => [
@@ -130,8 +121,13 @@ class AgentTelemetryController extends Controller
 
         try
         {
-            $ack = $this->ingestion->ingest(
+            $payload = $this->authorization->authorizeAndSanitize(
                 $validator->validated(),
+                $agent
+            );
+
+            $ack = $this->ingestion->ingest(
+                $payload,
                 $agent
             );
 

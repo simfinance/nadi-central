@@ -31,6 +31,10 @@ class TelemetryRetentionCleanupService
             'column' => 'gap_resolved_at',
             'resolved_only' => true,
         ],
+        'central_health_snapshots' => [
+            'table' => 'nadi_central_health_snapshots',
+            'column' => 'sampled_at',
+        ],
     ];
 
     public function run(bool $dryRun = false): array
@@ -55,14 +59,66 @@ class TelemetryRetentionCleanupService
                 continue;
             }
 
-            $retentionDays = (int) $policy->retention_days;
+            $retentionDays = filter_var(
+                $policy->retention_days,
+                FILTER_VALIDATE_INT
+            );
 
-            $cutoff = now()->subDays($retentionDays);
+            if ($retentionDays === false || $retentionDays < 1)
+            {
+                $results[$dataType] = [
+                    'status' => 'invalid_policy',
+                    'eligible' => 0,
+                    'deleted' => 0,
+                ];
+
+                Log::warning('NADI telemetry retention skipped due to an invalid policy.', [
+                    'data_type' => $dataType,
+                    'retention_days' => $policy->retention_days,
+                ]);
+
+                continue;
+            }
+
+            $cutoff = now('UTC')->subDays($retentionDays);
 
             $table = $config['table'];
 
             $query = DB::table($table)
                 ->where($config['column'], '<', $cutoff);
+
+            if ($dataType === 'telemetry_record_keys')
+            {
+                $query
+                    ->whereNotExists(function ($subquery)
+                    {
+                        $subquery
+                            ->selectRaw('1')
+                            ->from('nadi_telemetry_records')
+                            ->whereColumn(
+                                'nadi_telemetry_records.stream_id',
+                                'nadi_telemetry_record_keys.stream_id'
+                            )
+                            ->whereColumn(
+                                'nadi_telemetry_records.sequence',
+                                'nadi_telemetry_record_keys.sequence'
+                            );
+                    })
+                    ->whereNotExists(function ($subquery)
+                    {
+                        $subquery
+                            ->selectRaw('1')
+                            ->from('nadi_http_request_events')
+                            ->whereColumn(
+                                'nadi_http_request_events.stream_id',
+                                'nadi_telemetry_record_keys.stream_id'
+                            )
+                            ->whereColumn(
+                                'nadi_http_request_events.sequence',
+                                'nadi_telemetry_record_keys.sequence'
+                            );
+                    });
+            }
 
             if (!empty($config['resolved_only']))
             {

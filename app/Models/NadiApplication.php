@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'registration_status',
     'activation_status',
     'monitoring_status',
+    'monitoring_suspended_at',
     'registered_at',
     'unregistered_at',
 ])]
@@ -34,6 +35,7 @@ class NadiApplication extends Model
         return [
             'registered_at' => 'datetime',
             'unregistered_at' => 'datetime',
+            'monitoring_suspended_at' => 'datetime',
         ];
     }
 

@@ -479,8 +479,25 @@
                         <span>Applications</span>
                     </a>
 
+                    <a href="{{ route('monitoring.infrastructure') }}" class="menu-link {{ request()->routeIs('monitoring.infrastructure') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-7"/>
+                        </svg>
+                        <span>Infrastructure</span>
+                    </a>
+
+                    <a href="{{ route('monitoring.grafana') }}" class="menu-link {{ request()->routeIs('monitoring.grafana') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 18V6M4 18h16M8 14l3-4 3 2 5-6"/>
+                            <circle cx="8" cy="14" r="1"/>
+                            <circle cx="11" cy="10" r="1"/>
+                            <circle cx="14" cy="12" r="1"/>
+                        </svg>
+                        <span>Grafana Dashboards</span>
+                    </a>
+
                     <a href="{{ route('monitoring.databases') }}" class="menu-link {{ request()->routeIs('monitoring.databases') ? 'active' : '' }}">
-                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M46v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
                         <span>Databases</span>
                     </a>
 
@@ -490,6 +507,14 @@
                             <path d="M4 4h16v16H4z"/>
                         </svg>
                         <span>Central Health</span>
+                    </a>
+
+                    <a href="{{ route('management.telemetry') }}" class="menu-link {{ request()->routeIs('management.telemetry', 'management.telemetry.*') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12h4l3-7 4 14 3-7h4"/>
+                            <path d="M3 3v18h18"/>
+                        </svg>
+                        <span>Telemetry</span>
                     </a>
                 </div>
 
@@ -529,6 +554,39 @@
                             <path d="M9 12l2 2 4-4"/>
                         </svg>
                         <span>Activation Grants</span>
+                    </a>
+
+                    <a href="{{ route('management.alerts') }}" class="menu-link {{ request()->routeIs('management.alerts*') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3l9 17H3L12 3z"/>
+                            <path d="M12 9v5M12 17h.01"/>
+                        </svg>
+                        <span>Alert Management</span>
+                    </a>
+
+                    <a href="{{ route('management.notifications') }}" class="menu-link {{ request()->routeIs('management.notifications*') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 5h16v14H4z"/>
+                            <path d="m4 7 8 6 8-6"/>
+                            <path d="M8 3v2M16 3v2"/>
+                        </svg>
+                        <span>Notifications</span>
+                    </a>
+
+                    <a href="{{ route('management.notification-templates') }}" class="menu-link {{ request()->routeIs('management.notification-templates*') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16v16H4z"/>
+                            <path d="M8 8h8M8 12h8M8 16h5"/>
+                        </svg>
+                        <span>Email Templates</span>
+                    </a>
+
+                    <a href="{{ route('management.notification-mail') }}" class="menu-link {{ request()->routeIs('management.notification-mail*') ? 'active' : '' }}">
+                        <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="5" width="18" height="14" rx="2"/>
+                            <path d="m3 7 9 6 9-6"/>
+                        </svg>
+                        <span>Email Notifications</span>
                     </a>
 
                     <a href="{{ route('management.telemetry-retention') }}" class="menu-link {{ request()->routeIs('management.telemetry-retention*') ? 'active' : '' }}">

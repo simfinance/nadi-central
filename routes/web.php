@@ -8,7 +8,11 @@ use App\Http\Controllers\ServerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CentralHealthController;
 use App\Http\Controllers\TelemetryController;
+use App\Http\Controllers\PrometheusQueryController;
+use App\Http\Controllers\PrometheusMonitoringController;
+use App\Http\Controllers\GrafanaDashboardController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\MfaController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\EnrollmentTokenController;
@@ -17,6 +21,10 @@ use App\Http\Controllers\ActivationGrantController;
 use App\Http\Controllers\AgentCredentialController;
 use App\Http\Controllers\ApplicationLifecycleController;
 use App\Http\Controllers\TelemetryRetentionPolicyController;
+use App\Http\Controllers\NotificationMailSettingsController;
+use App\Http\Controllers\NotificationDeliveryController;
+use App\Http\Controllers\NotificationTemplateController;
+use App\Http\Controllers\AlertManagementController;
 
 Route::get('/', function () {
     if (Auth::check())
@@ -35,16 +43,52 @@ Route::middleware('guest')->group(function () {
         ->name('login.store');
 });
 
-Route::middleware('auth')->group(function () {
+Route::get('/mfa/setup', [MfaController::class, 'setup'])->name('mfa.setup');
+Route::post('/mfa/setup', [MfaController::class, 'confirmSetup'])->name('mfa.setup.confirm');
+Route::get('/mfa/challenge', [MfaController::class, 'challenge'])->name('mfa.challenge');
+Route::post('/mfa/challenge', [MfaController::class, 'verify'])->name('mfa.challenge.verify');
+Route::get('/mfa/recovery', [MfaController::class, 'recovery'])->name('mfa.recovery');
+
+Route::get('/internal/grafana/auth', [GrafanaDashboardController::class, 'authenticateProxy'])
+    ->name('internal.grafana.auth');
+Route::post('/mfa/recovery/continue', [MfaController::class, 'finishRecovery'])->name('mfa.recovery.finish');
+
+Route::middleware(['auth', 'mfa'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/central-health', [CentralHealthController::class, 'index'])
         ->name('monitoring.central-health');
 
+    Route::get('/central-health/network-history', [CentralHealthController::class, 'networkHistory'])
+        ->name('monitoring.central-health.network-history');
+
     Route::prefix('monitoring')
         ->name('monitoring.')
         ->group(function () {
             Route::get('/servers', [ServerController::class, 'index'])->name('servers');
+
+            Route::get('/infrastructure', [PrometheusMonitoringController::class, 'index'])
+                ->name('infrastructure');
+
+            Route::get('/infrastructure/data', [TelemetryController::class, 'infrastructureData'])
+                ->name('infrastructure.data');
+
+            Route::get('/grafana', [GrafanaDashboardController::class, 'index'])
+                ->name('grafana');
+
+            Route::prefix('prometheus')
+                ->name('prometheus.')
+                ->group(function () {
+                    Route::get('/overview', [PrometheusQueryController::class, 'overview'])
+                        ->name('overview');
+
+                    Route::get('/metrics', [PrometheusQueryController::class, 'metrics'])
+                        ->name('metrics');
+
+                    Route::get('/query/{metric}', [PrometheusQueryController::class, 'query'])
+                        ->where('metric', '[a-z0-9_]+')
+                        ->name('query');
+                });
 
             Route::get('/applications', [ApplicationController::class, 'index'])->name('applications');
             Route::post('/applications/{applicationId}/resume',[ApplicationLifecycleController::class, 'resume'])->name('applications.resume');
@@ -84,12 +128,28 @@ Route::middleware('auth')->group(function () {
             Route::get('/telemetry-retention', [TelemetryRetentionPolicyController::class, 'index'])->name('telemetry-retention');
             Route::post('/telemetry-retention', [TelemetryRetentionPolicyController::class, 'update'])->name('telemetry-retention.update');
 
+            Route::get('/notification-mail', [NotificationMailSettingsController::class, 'index'])->name('notification-mail');
+            Route::put('/notification-mail', [NotificationMailSettingsController::class, 'update'])->name('notification-mail.update');
+            Route::post('/notification-mail/test', [NotificationMailSettingsController::class, 'sendTest'])->name('notification-mail.test');
+
+            Route::get('/alerts', [AlertManagementController::class, 'index'])->name('alerts');
+            Route::get('/alerts/{fingerprint}', [AlertManagementController::class, 'show'])->name('alerts.show');
+
+            Route::get('/notifications', [NotificationDeliveryController::class, 'index'])->name('notifications');
+            Route::post('/notifications', [NotificationDeliveryController::class, 'store'])->name('notifications.store');
+
+            Route::get('/notification-templates', [NotificationTemplateController::class, 'index'])->name('notification-templates');
+            Route::post('/notification-templates', [NotificationTemplateController::class, 'store'])->name('notification-templates.store');
+            Route::put('/notification-templates/{templateId}', [NotificationTemplateController::class, 'update'])->whereNumber('templateId')->name('notification-templates.update');
+            Route::delete('/notification-templates/{templateId}', [NotificationTemplateController::class, 'destroy'])->whereNumber('templateId')->name('notification-templates.destroy');
+
             // Ringkasan seluruh server & aplikasi
             Route::get('/telemetry', [TelemetryController::class, 'index'])
                 ->name('telemetry');
 
             Route::get('/telemetry/overview', [TelemetryController::class, 'overview'])
                 ->name('telemetry.overview');
+
 
             // Detail per server
             Route::get('/telemetry/data', [TelemetryController::class, 'data'])

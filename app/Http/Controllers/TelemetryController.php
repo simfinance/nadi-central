@@ -83,6 +83,316 @@ class TelemetryController extends Controller
         return response()->json($this->buildPayload($rangeKey, $request->query('agent')));
     }
 
+
+    /**
+     * Histori canonical untuk halaman Infrastructure.
+     *
+     * Data diambil melalui agregasi yang sama dengan halaman Telemetry,
+     * sehingga kedua halaman memakai record, bucket, dan pemilihan resource
+     * yang identik.
+     */
+    public function infrastructureData(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'range' => ['nullable', 'in:1h,6h,24h,7d'],
+            'server_id' => ['nullable', 'uuid'],
+            'application_id' => ['nullable', 'uuid'],
+        ]);
+
+        [$rangeKey] = $this->resolveRange($request);
+
+        $window = self::RANGES[$rangeKey][0];
+        $bucket = self::RANGES[$rangeKey][1];
+        $agents = $this->loadAgents();
+
+        if (!empty($validated['server_id']))
+        {
+            $agents = $agents->where('server_id', $validated['server_id'])->values();
+        }
+
+        $base = $this->basePayload($rangeKey, $agents);
+        $metrics = [
+            'cpu' => [],
+            'memory' => [],
+            'disk' => [],
+            'rx' => [],
+            'tx' => [],
+            'probe' => [],
+            'latency' => [],
+            'age' => [],
+            'up' => [],
+        ];
+        $probeAvailability = [];
+
+        foreach ($agents as $agent)
+        {
+            $payload = $this->infrastructureAgentSections($agent, $window, $bucket);
+            $server = $payload['server'];
+
+            if ($server)
+            {
+                $labels = [
+                    'hostname' => (string) $agent->hostname,
+                    'server_id' => (string) $agent->server_id,
+                    'agent_id' => (string) $agent->id,
+                    'server_state' => $payload['server_state'],
+                ];
+
+                foreach ([
+                    'cpu' => ['series' => 'cpu_avg', 'current' => $server['cpu']['usage'] ?? null],
+                    'memory' => ['series' => 'mem_avg', 'current' => $server['memory']['usage_percent'] ?? null],
+                    'disk' => ['series' => 'disk_pct', 'current' => $server['disks'][0]['usage'] ?? null],
+                    'rx' => ['series' => 'rx_rate', 'current' => null],
+                    'tx' => ['series' => 'tx_rate', 'current' => null],
+                ] as $key => $metric)
+                {
+                    $metricLabels = $labels;
+
+                    if ($metric['current'] !== null)
+                    {
+                        $metricLabels['current_value'] = (string) $metric['current'];
+                    }
+
+                    $metrics[$key][] = $this->seriesResult(
+                        $metricLabels,
+                        $server['series']['t'] ?? [],
+                        $server['series'][$metric['series']] ?? []
+                    );
+                }
+            }
+
+            foreach ($payload['streams'] as $stream)
+            {
+                $streamLabels = [
+                    'hostname' => (string) $agent->hostname,
+                    'server_id' => (string) $agent->server_id,
+                    'agent_id' => (string) $agent->id,
+                    'stream' => (string) $stream['name'],
+                ];
+
+                if ($stream['name'] === 'application_metrics')
+                {
+                    $application = collect($payload['applications'])
+                        ->firstWhere('stream_id', $stream['id']);
+
+                    if (!$application)
+                    {
+                        continue;
+                    }
+
+                    if (
+                        !empty($validated['application_id'])
+                        && $application['application_id'] !== $validated['application_id']
+                    )
+                    {
+                        continue;
+                    }
+
+                    $streamLabels['application_id'] = (string) $application['application_id'];
+                    $streamLabels['application_name'] = (string) $application['name'];
+                    $streamLabels['environment'] = (string) ($application['environment'] ?? '');
+                }
+
+                $age = $stream['age_seconds'];
+                $timestamp = $base['generated_at'];
+
+                if ($age !== null)
+                {
+                    $metrics['age'][] = $this->seriesResult(
+                        $streamLabels,
+                        [$timestamp],
+                        [$age]
+                    );
+                }
+
+                $metrics['up'][] = $this->seriesResult(
+                    $streamLabels,
+                    [$timestamp],
+                    [$age !== null && $age <= self::OFFLINE_AFTER ? 1 : 0]
+                );
+            }
+
+            foreach ($payload['applications'] as $application)
+            {
+                if (
+                    !empty($validated['application_id'])
+                    && $application['application_id'] !== $validated['application_id']
+                )
+                {
+                    continue;
+                }
+
+                foreach ($application['probes'] as $probe => $details)
+                {
+                    $labels = [
+                        'hostname' => (string) $agent->hostname,
+                        'server_id' => (string) $agent->server_id,
+                        'agent_id' => (string) $agent->id,
+                        'application_id' => (string) $application['application_id'],
+                        'application_name' => (string) $application['name'],
+                        'environment' => (string) ($application['environment'] ?? ''),
+                        'probe' => (string) $probe,
+                        'availability' => $details['availability'] !== null
+                            ? (string) $details['availability']
+                            : '',
+                        'current_up' => in_array($details['status'], self::PROBE_OK, true) ? '1' : '0',
+                    ];
+
+                    $metrics['latency'][] = $this->seriesResult(
+                        $labels,
+                        $application['series']['t'] ?? [],
+                        $application['series'][$probe] ?? []
+                    );
+
+                    $metrics['probe'][] = $this->seriesResult(
+                        $labels,
+                        $application['series']['t'] ?? [],
+                        $application['series'][$probe . '_up'] ?? []
+                    );
+
+                    $probeAvailability[] = [
+                        'application_id' => (string) $application['application_id'],
+                        'application_name' => (string) $application['name'],
+                        'probe' => (string) $probe,
+                        'availability' => $details['availability'],
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'range' => $base['range'],
+            'generated_at' => $base['generated_at'],
+            'metrics' => $metrics,
+            'probe_availability' => $probeAvailability,
+        ]);
+    }
+
+
+    private function infrastructureAgentSections(
+        object $agent,
+        int $window,
+        int $bucket
+    ): array
+    {
+        $streams = DB::table('nadi_telemetry_streams as st')
+            ->leftJoin('nadi_applications as ap', 'ap.id', '=', 'st.application_id')
+            ->where('st.agent_id', $agent->id)
+            ->get([
+                'st.id',
+                'st.application_id',
+                'st.stream_name',
+                'st.last_observed_at',
+                'st.last_received_at',
+                'ap.application_name',
+                'ap.environment',
+                'ap.application_key',
+                'ap.monitoring_status',
+                'ap.activation_status',
+                'ap.framework',
+            ]);
+
+        $now = CarbonImmutable::now('UTC');
+        $lastSeen = $streams
+            ->map(fn ($stream) => $stream->last_observed_at
+                ? CarbonImmutable::parse($stream->last_observed_at, 'UTC')
+                : null)
+            ->filter()
+            ->max();
+
+        $end = $now;
+
+        if ($lastSeen && $lastSeen->lt($now->subSeconds($window)))
+        {
+            $end = $lastSeen;
+        }
+
+        $start = $end->subSeconds($window);
+        $serverStream = $streams->firstWhere('stream_name', 'server_metrics');
+        $appStreams = $streams
+            ->where('stream_name', 'application_metrics')
+            ->values();
+
+        $server = $serverStream
+            ? $this->serverSection($serverStream, $start, $end, $bucket)
+            : null;
+
+        $applications = $appStreams
+            ->map(fn ($stream) => $this->applicationSection($stream, $start, $end, $bucket))
+            ->all();
+
+        $streamRows = $streams->map(function ($stream) use ($now) {
+            $lastReceived = $stream->last_received_at
+                ? CarbonImmutable::parse($stream->last_received_at, 'UTC')
+                : null;
+            $age = $lastReceived
+                ? max(0, $now->getTimestamp() - $lastReceived->getTimestamp())
+                : null;
+            $state = $age === null
+                ? 'offline'
+                : ($age > self::OFFLINE_AFTER
+                    ? 'offline'
+                    : ($age > self::STALE_AFTER ? 'stale' : 'live'));
+
+            return [
+                'id' => $stream->id,
+                'name' => $stream->stream_name,
+                'application_id' => $stream->application_id,
+                'application_name' => $stream->application_name,
+                'age_seconds' => $age,
+                'state' => $state,
+            ];
+        })->values()->all();
+
+        $streamOrder = ['live' => 0, 'stale' => 1, 'offline' => 2];
+        $serverState = 'offline';
+
+        if ($streamRows !== [])
+        {
+            $serverState = 'live';
+
+            foreach ($streamRows as $stream)
+            {
+                if ($streamOrder[$stream['state']] > $streamOrder[$serverState])
+                {
+                    $serverState = $stream['state'];
+                }
+            }
+        }
+
+        return [
+            'server' => $server,
+            'applications' => $applications,
+            'streams' => $streamRows,
+            'server_state' => $serverState,
+        ];
+    }
+
+    private function seriesResult(array $labels, array $timestamps, array $values): array
+    {
+        $points = [];
+
+        foreach ($timestamps as $index => $timestamp)
+        {
+            $value = $values[$index] ?? null;
+
+            if ($value === null || !is_numeric($value))
+            {
+                continue;
+            }
+
+            $points[] = [
+                CarbonImmutable::parse($timestamp, 'UTC')->getTimestamp(),
+                (string) $value,
+            ];
+        }
+
+        return [
+            'metric' => $labels,
+            'values' => $points,
+        ];
+    }
+
     /** Detail satu record mentah (dimuat saat baris recent record dibuka). */
     public function record(string $id): JsonResponse
     {
@@ -149,7 +459,7 @@ class TelemetryController extends Controller
             ->where('a.installation_state', 'installed')
             ->orderBy('s.hostname')
             ->get([
-                'a.id', 'a.status', 'a.agent_version', 'a.protocol_version', 'a.installed_at',
+                'a.id', 'a.server_id', 'a.status', 'a.agent_version', 'a.protocol_version', 'a.installed_at',
                 'a.last_control_at', 'a.last_heartbeat_at',
                 's.hostname', 's.ip_address', 's.os_name', 's.os_version', 's.architecture',
             ]);
@@ -720,6 +1030,9 @@ class TelemetryController extends Controller
 
             foreach (self::PROBES as $p) {
                 $series[$p][] = $this->f($r->{$p . '_lat'}, 2);
+                $series[$p . '_up'][] = (int) $r->n > 0
+                    ? (int) $r->{$p . '_ok'} / (int) $r->n
+                    : null;
                 $okSum[$p]   += (int) $r->{$p . '_ok'};
             }
         }
@@ -742,6 +1055,7 @@ class TelemetryController extends Controller
 
         return [
             'stream_id'          => $stream->id,
+            'application_id'     => $stream->application_id,
             'name'               => $stream->application_name,
             'key'                => $stream->application_key,
             'environment'        => $stream->environment,

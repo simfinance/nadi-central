@@ -159,12 +159,46 @@ class TelemetryRetentionService
                 $policy['cutoff']
             );
 
+        if ($dataType === 'telemetry_record_keys')
+        {
+            $query
+                ->whereNotExists(function ($subQuery)
+                {
+                    $subQuery->selectRaw('1')
+                        ->from('nadi_telemetry_records')
+                        ->whereColumn(
+                            'nadi_telemetry_records.stream_id',
+                            'nadi_telemetry_record_keys.stream_id'
+                        )
+                        ->whereColumn(
+                            'nadi_telemetry_records.sequence',
+                            'nadi_telemetry_record_keys.sequence'
+                        );
+                })
+                ->whereNotExists(function ($subQuery)
+                {
+                    $subQuery->selectRaw('1')
+                        ->from('nadi_http_request_events')
+                        ->whereColumn(
+                            'nadi_http_request_events.stream_id',
+                            'nadi_telemetry_record_keys.stream_id'
+                        )
+                        ->whereColumn(
+                            'nadi_http_request_events.sequence',
+                            'nadi_telemetry_record_keys.sequence'
+                        );
+                });
+        }
+
         if ($dataType === 'telemetry_gaps')
         {
             $query->whereNotNull('gap_resolved_at');
         }
 
-        return $this->deleteInChunks($query);
+        return $this->deleteInChunks(
+            $definition['table'],
+            $query
+        );
     }
 
     private function deleteExpiredBatches(
@@ -196,7 +230,10 @@ class TelemetryRetentionService
                     );
             });
 
-        return $this->deleteInChunks($query);
+        return $this->deleteInChunks(
+            'nadi_telemetry_batches',
+            $query
+        );
     }
 
     private function deleteInChunks(

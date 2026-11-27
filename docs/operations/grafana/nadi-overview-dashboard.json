@@ -1,0 +1,611 @@
+{
+    "id": null,
+    "uid": "nadi-overview",
+    "title": "NADI Infrastructure Overview",
+    "tags": [
+        "nadi",
+        "infrastructure",
+        "server-monitoring",
+        "application-monitoring"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+        "from": "now-6h",
+        "to": "now"
+    },
+    "editable": false,
+    "graphTooltip": 1,
+    "templating": {
+        "list": [
+            {
+                "name": "hostname",
+                "label": "Server",
+                "type": "query",
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "nadi-prometheus"
+                },
+                "refresh": 1,
+                "query": {
+                    "query": "label_values(nadi_server_cpu_usage_percent, hostname)",
+                    "refId": "StandardVariableQuery"
+                },
+                "definition": "label_values(nadi_server_cpu_usage_percent, hostname)",
+                "includeAll": true,
+                "allValue": ".*",
+                "multi": true,
+                "sort": 1,
+                "current": {
+                    "selected": true,
+                    "text": [
+                        "All"
+                    ],
+                    "value": [
+                        "$__all"
+                    ]
+                }
+            }
+        ]
+    },
+    "panels": [
+        {
+            "id": 1,
+            "title": "CPU Usage by Server",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent",
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "avg by (hostname) (nadi_server_cpu_usage_percent{hostname=~\"$hostname\"})",
+                    "legendFormat": "{{hostname}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "title": "Memory Usage by Server",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 0,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent",
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "avg by (hostname) (nadi_server_memory_usage_percent{hostname=~\"$hostname\"})",
+                    "legendFormat": "{{hostname}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "title": "Disk Usage by Mount Point",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 8,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent",
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "avg by (hostname, mount_point) (nadi_server_disk_usage_percent{hostname=~\"$hostname\"})",
+                    "legendFormat": "{{hostname}} · {{mount_point}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "title": "Network Throughput",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 8,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "Bps",
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "sum by (hostname, direction) (rate(nadi_server_network_bytes_total{hostname=~\"$hostname\"}[5m]))",
+                    "legendFormat": "{{hostname}} · {{direction}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "title": "Load Average (1 minute)",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 16,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "avg by (hostname) (nadi_server_load_average{hostname=~\"$hostname\",period=\"1m\"})",
+                    "legendFormat": "{{hostname}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "title": "Application Probe Status",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 16,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "min": 0,
+                    "max": 1,
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "min by (hostname, application_name, probe) (nadi_application_probe_up{hostname=~\"$hostname\"})",
+                    "legendFormat": "{{application_name}} · {{probe}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 7,
+            "title": "Application Probe Latency",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 24,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "ms",
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "avg by (hostname, application_name, probe) (nadi_application_probe_latency_milliseconds{hostname=~\"$hostname\"})",
+                    "legendFormat": "{{application_name}} · {{probe}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 8,
+            "title": "Telemetry Stream Age",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 24,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "max by (hostname, stream) (nadi_telemetry_stream_age_seconds{hostname=~\"$hostname\"})",
+                    "legendFormat": "{{hostname}} · {{stream}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 9,
+            "title": "Telemetry Stream Availability",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 0,
+                "y": 32,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "min": 0,
+                    "max": 1,
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "min by (hostname, stream) (nadi_telemetry_stream_up{hostname=~\"$hostname\"})",
+                    "legendFormat": "{{hostname}} · {{stream}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 10,
+            "title": "Nginx Process Status",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "nadi-prometheus"
+            },
+            "gridPos": {
+                "x": 12,
+                "y": 32,
+                "w": 12,
+                "h": 8
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "min": 0,
+                    "max": 1,
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "fillOpacity": 12,
+                        "showPoints": "never",
+                        "spanNulls": false
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "nadi-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "min by (hostname) (nadi_server_nginx_process_up{hostname=~\"$hostname\"})",
+                    "legendFormat": "{{hostname}}",
+                    "refId": "A"
+                }
+            ]
+        }
+    ]
+}

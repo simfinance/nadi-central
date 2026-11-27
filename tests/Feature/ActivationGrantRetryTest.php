@@ -480,35 +480,12 @@ class ActivationGrantRetryTest extends TestCase
 
     private function configureTestKeys(): void
     {
-        $key = openssl_pkey_new([
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-            'private_key_bits' => 2048,
-        ]);
+        $seed = random_bytes(
+            SODIUM_CRYPTO_SIGN_SEEDBYTES
+        );
 
-        if ($key === false)
-        {
-            $this->fail(
-                'Unable to generate temporary test signing key.'
-            );
-        }
-
-        $privateKey = '';
-
-        if (!openssl_pkey_export($key, $privateKey))
-        {
-            $this->fail(
-                'Unable to export temporary test private key.'
-            );
-        }
-
-        $keyDetails = openssl_pkey_get_details($key);
-
-        if (!$keyDetails || empty($keyDetails['key']))
-        {
-            $this->fail(
-                'Unable to export temporary test public key.'
-            );
-        }
+        $keyPair = sodium_crypto_sign_seed_keypair($seed);
+        $publicKey = sodium_crypto_sign_publickey($keyPair);
 
         $privatePath = tempnam(
             sys_get_temp_dir(),
@@ -527,24 +504,22 @@ class ActivationGrantRetryTest extends TestCase
             );
         }
 
-        file_put_contents($privatePath, $privateKey);
-
-        file_put_contents(
-            $publicPath,
-            $keyDetails['key']
-        );
+        file_put_contents($privatePath, $seed);
+        file_put_contents($publicPath, $publicKey);
 
         $this->keyPaths = [
             $privatePath,
             $publicPath,
         ];
 
+        sodium_memzero($seed);
+        sodium_memzero($keyPair);
+
         config([
             'nadi.activation.key_id' => 'test-key',
             'nadi.activation.private_key_path' => $privatePath,
             'nadi.activation.public_key_path' => $publicPath,
             'nadi.activation.grant_lifetime_days' => 30,
-            'nadi.activation.capabilities' => [],
         ]);
     }
 

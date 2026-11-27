@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+    - name: NADI dashboards
+      orgId: 1
+      folder: NADI
+      type: file
+      disableDeletion: true
+      editable: false
+      options:
+          path: /etc/grafana/dashboards/nadi
