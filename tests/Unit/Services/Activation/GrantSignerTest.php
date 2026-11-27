@@ -170,4 +170,52 @@ class GrantSignerTest extends TestCase
             sodium_memzero($otherKeyPair);
         }
     }
+    public function test_signature_matches_agent_ed25519_compatibility_vector(): void
+    {
+        $fixture = json_decode(
+            file_get_contents(
+                base_path('tests/fixtures/activation-grant-ed25519-vector.json')
+            ),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+
+        $seed = base64_decode(
+            $fixture['private_seed_base64'],
+            true
+        );
+
+        $this->assertNotFalse($seed);
+
+        $keyPair = sodium_crypto_sign_seed_keypair($seed);
+        $publicKey = sodium_crypto_sign_publickey($keyPair);
+
+        file_put_contents($this->keyPaths[0], $seed);
+        file_put_contents($this->keyPaths[1], $publicKey);
+
+        $signer = app(GrantSigner::class);
+
+        $this->assertSame(
+            $fixture['canonical_json'],
+            $signer->canonicalJson($fixture['payload'])
+        );
+
+        $this->assertSame(
+            $fixture['signature_base64'],
+            $signer->sign($fixture['payload'])
+        );
+
+        $this->assertTrue(
+            $signer->verify(
+                $fixture['payload'],
+                $fixture['signature_base64']
+            )
+        );
+
+        sodium_memzero($seed);
+        sodium_memzero($keyPair);
+    }
+
+
 }
