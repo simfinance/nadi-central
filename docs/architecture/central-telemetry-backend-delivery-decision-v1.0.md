@@ -27,10 +27,11 @@ The following points are based on source inspection and the successful isolated 
 3. The service stores the accepted acknowledgement response in `nadi_telemetry_batches.ack_response` and returns it after the transaction completes.
 4. The controller currently responds with HTTP 200 and `data.status = accepted`.
 5. Central already exposes an authenticated Prometheus scrape endpoint at `GET /api/internal/prometheus/metrics`. It renders Prometheus text exposition from the latest Agent telemetry records persisted in MySQL. This is a scrape/exporter path, not Prometheus Remote Write.
-6. The current exporter reads `server_metrics` and `application_metrics`; database probe records are accepted by ingestion but were not yet included in the exporter at the time this proposal was drafted. The exporter also needs live Prometheus scrape verification and production scrape configuration verification.
-7. No Loki push adapter or Loki delivery worker was found in the inspected Central source.
-8. The current generic telemetry path stores raw metrics and logs in MySQL. MySQL therefore currently acts as telemetry intake/staging and also retains raw records; Prometheus TSDB history is populated only when the scrape exporter is successfully scraped.
-9. Log ingestion remains disabled by default through `NADI_TELEMETRY_LOGS_ENABLED=false`.
+6. Merged PR #7 extends the exporter to include `database_metrics`, backed by a transactional per-application probe state table for last status, last success, latency, and cumulative failures. The exporter now re-checks current Agent/application authorization before exposing each stream and no longer caches authorized exposition for five seconds.
+7. The exporter currently supports `server_metrics`, `application_metrics`, and `database_metrics`. It still needs a real Prometheus scrape E2E test and production scrape configuration verification.
+8. No Loki push adapter or Loki delivery worker was found in the inspected Central source.
+9. The current generic telemetry path stores raw metrics and logs in MySQL. MySQL therefore currently acts as telemetry intake/staging and also retains raw records; Prometheus TSDB history is populated only when the scrape exporter is successfully scraped.
+10. Log ingestion remains disabled by default through `NADI_TELEMETRY_LOGS_ENABLED=false`.
 8. The stream registry recognizes these streams but has no capability mapping for them, so authorization rejects them:
    - `nginx_access_logs`
    - `application_events`
@@ -82,7 +83,7 @@ The existing telemetry record/event rows remain bounded staging data until all r
 - Configure and verify a scrape interval that is compatible with the Agent collection/push cadence. The Agent control polling baseline is 30 seconds; the actual production scrape interval must be confirmed and tested.
 - Prometheus TSDB provides metric history; MySQL retention remains a separate staging/idempotency policy.
 
-Do not add Prometheus Remote Write as a second ingestion path unless an ADR explicitly approves it and a measured data-loss/fidelity requirement cannot be met by the scrape/exporter model. The existing exporter currently selects the latest record per stream, so its scrape cadence and sequence behavior must be tested to ensure the required sample fidelity.
+Do not add Prometheus Remote Write as a second ingestion path unless an ADR explicitly approves it and a measured data-loss/fidelity requirement cannot be met by the scrape/exporter model. The existing exporter selects the highest sequence record per stream, so its scrape cadence and sequence behavior must be tested to ensure the required sample fidelity. Database probe status and failure counters are now exported from a transactional state table; the live scrape path still needs end-to-end verification.
 
 **Loki:** use the Loki Push API from Central for approved log streams. Apply a strict label allowlist and place high-cardinality or request-specific values in structured metadata/log content, not labels.
 
