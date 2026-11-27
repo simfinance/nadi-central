@@ -143,4 +143,14 @@ class TelemetryStorageSchemaTest extends TestCase
         );
     }
 
+    public function test_applications_contains_monitoring_suspension_timestamp(): void
+    {
+        $this->assertTrue(
+            Schema::hasColumn(
+                'nadi_applications',
+                'monitoring_suspended_at'
+            )
+        );
+    }
+
 }
