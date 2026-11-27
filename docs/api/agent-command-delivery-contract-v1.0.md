@@ -1,5 +1,8 @@
 # NADI Agent Command Delivery Contract v1.0
 
+**Implementation status:** Central dispatch/retry/acknowledgement endpoints exist. The inspected Agent v0.7.5-dev control client does not implement command receipt acknowledgement or command execution handling. This contract is not end-to-end verified and operational commands must remain unused in production until the Agent implementation and tests are complete.
+
+
 Status: Central implementation. Agent acknowledgement integration and end-to-end verification remain pending.
 
 ## Delivery semantics

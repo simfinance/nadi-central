@@ -163,6 +163,17 @@ Required evidence:
 
 No alert receiver or notification destination was contacted.
 
+
+### 3.10 Control command delivery
+
+The Agent Side Monitoring Specification explicitly states that marking a command as `delivered` before the Agent acknowledgement is not sufficient to guarantee recoverable delivery. Central currently retries unacknowledged commands after a configured interval, but the inspected Agent control client implements Activation Grant acknowledgement only; a command acknowledgement client/path was not found in the inspected Agent release.
+
+Until the Agent command receipt/acknowledgement lifecycle is implemented and verified:
+- Do not use Central commands for production remediation or business-service operations.
+- Treat command delivery as at-least-once/repeated delivery, not exactly-once.
+- Require idempotent command handlers and explicit expiry before any non-production command test.
+- Add Agent command acknowledgement, retry, timeout and final-state tests before enabling operational commands in production.
+
 ## 4. Required non-production acceptance test
 
 Run one complete non-production test with the actual Central release candidate, Agent release candidate, MySQL, Prometheus and Loki:
@@ -189,6 +200,7 @@ Save test evidence, timestamps, release SHAs, configuration hashes (without secr
 - [ ] Agent and Laravel Bridge release versions are explicitly pinned and production-ready.
 - [ ] Ed25519 key distribution and grant re-issuance plan approved.
 - [ ] Actual Agent-to-Central activation E2E passed.
+- [ ] Command receipt/acknowledgement/retry/expiry E2E passed before enabling operational commands.
 - [ ] Prometheus scrape E2E passed.
 - [ ] Loki delivery E2E passed before enabling logs.
 - [ ] Database schema drift audit and verified backup completed.
