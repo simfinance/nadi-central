@@ -31,7 +31,7 @@ Versi dependency yang menjadi acuan adalah `composer.json` dan `composer.lock` p
 - Agent dan server registry.
 - Enrollment token untuk proses registrasi Agent.
 - Registration dan approval workflow.
-- Activation grant yang ditandatangani.
+- Activation grant yang ditandatangani dengan Ed25519 dan diverifikasi oleh Agent.
 - Pengelolaan Agent credential, termasuk penerbitan, rotasi, dan pencabutan.
 - Suspend dan resume monitoring aplikasi.
 - Konfigurasi kebijakan retensi telemetry.
@@ -95,7 +95,7 @@ Beberapa batasan yang perlu diketahui:
 - Komunikasi Agent menggunakan HTTPS.
 - Agent API menggunakan middleware autentikasi Agent, kecuali endpoint yang memang dipakai untuk release manifest dan enrollment awal.
 - Release manifest ditandatangani dengan Ed25519. Public key digunakan untuk verifikasi di sisi Agent.
-- Private signing key hanya berada di host Central pada secret path yang dikonfigurasi; jangan commit key, credential, token, atau file `.env`.
+- Activation Grant menggunakan Ed25519. Central menyimpan private seed raw 32-byte; Agent menerima public key raw 32-byte. Private signing key hanya berada di host Central pada secret path yang dikonfigurasi; jangan commit key, credential, token, atau file `.env`.
 - Telemetry harus mengikuti batas minimisasi data dan redaction. Jangan mengirim password, token, private key, isi `.env`, atau data bisnis yang tidak diperlukan.
 - NADI v1 berfokus pada observability dan lifecycle control. Central Health tidak melakukan auto-healing, restart, failover, atau perubahan konfigurasi host.
 
@@ -112,6 +112,16 @@ Beberapa batasan yang perlu diketahui:
 | `routes/api.php` | Route API Agent |
 | `resources/views/` | Blade views |
 | `storage/logs/` | Log aplikasi Laravel |
+
+## Activation Grant Ed25519
+
+Generate key pair hanya pada lingkungan yang dituju dan melalui prosedur perubahan yang disetujui:
+
+```bash
+php artisan nadi:activation-keys:generate
+```
+
+Command tidak menimpa key yang sudah ada. Private seed disimpan dengan permission `0600`; public key disimpan sebagai raw 32-byte Ed25519 public key. Lihat [Activation Grant Ed25519 Key Management](docs/operations/activation-grant-ed25519-key-management-v1.0.md) untuk distribusi public key dan prosedur rotasi.
 
 ## Persyaratan deployment
 
