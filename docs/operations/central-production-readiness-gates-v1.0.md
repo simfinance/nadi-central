@@ -21,7 +21,7 @@ These results do **not** establish production readiness. No production server, d
 | Activation schema | Acknowledgement columns/index and application suspension timestamp added | CI verified |
 | Database probe state | Transactional per-application status, last success, latency, sequence and cumulative failure counter table | CI verified |
 | Retention safety | Record idempotency keys are retained while matching telemetry/event rows exist in both cleanup implementations | CI verified |
-| Prometheus exporter | Bearer-protected exposition; current Agent/application authorization rechecked before stream samples are exposed | PHP feature test verified |
+| Prometheus exporter | Bearer-protected exposition; current Agent/application authorization rechecked before stream samples are exposed; ephemeral Prometheus 3.5 successfully scrapes and queries the endpoint in CI | PHP + real Prometheus CI verified |
 | Database metrics | Five Laravel DB metrics emitted from persisted probe state | PHP feature test verified |
 | Activation signing | Central uses Ed25519; deterministic Go compatibility vector matches Agent canonicalization and signature verification algorithm | PHP + Go CI verified |
 | Key generation | Non-overwriting Artisan key-generation command; private seed mode 0600, public key mode 0644 | PHP feature test verified |
@@ -36,6 +36,8 @@ Relevant merged changes:
 - PR #6: idempotency-key retention safety.
 - PR #7: database probe metrics export and exporter authorization gating.
 - PR #8: Ed25519 Activation Grant compatibility.
+- PR #9: production readiness gates.
+- PR #10: real Prometheus scrape verification in CI.
 - PR #5 remains a draft decision proposal; it is not an approved ADR.
 
 ## 3. Blocking gates
@@ -70,11 +72,13 @@ Central has a protected scrape endpoint at `GET /api/internal/prometheus/metrics
 
 The exporter rechecks current Agent/application grant and capability before exposing samples and does not cache authorized exposition.
 
-**Still required:**
+**CI evidence:** PR #10 runs an isolated Prometheus 3.5 container, scrapes the Laravel endpoint with a test-only Bearer token, checks the target health, and queries `nadi_prometheus_exporter_up=1` successfully.
+
+**Still required in the target environment:**
 - Configure Prometheus to scrape the endpoint over the internal network with a dedicated Bearer token.
 - Verify TLS or an approved private-network transport and secret handling.
 - Set a scrape interval compatible with the Agent collection/push cadence.
-- Verify `up`, `nadi_prometheus_exporter_up`, stream freshness and database metrics in the real Prometheus UI/API.
+- Verify `up`, `nadi_prometheus_exporter_up`, stream freshness and database metrics in the target non-production/production Prometheus UI/API. CI verifies only an ephemeral local Prometheus container.
 - Test that suspended, revoked, expired and unauthorized applications stop producing active samples.
 - Test Prometheus outage/recovery and confirm Central ingestion remains available.
 
