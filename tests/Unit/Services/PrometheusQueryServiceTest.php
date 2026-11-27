@@ -65,7 +65,10 @@ class PrometheusQueryServiceTest extends TestCase
                 . '"}) and on(agent_id,application_id) '
                 . '(nadi_telemetry_stream_up{stream="database_metrics"} == 1)';
 
-            return $request->url() === 'https://prometheus.test/api/v1/query'
+            return str_starts_with(
+                    $request->url(),
+                    'https://prometheus.test/api/v1/query?'
+                )
                 && $request['query'] === $expectedQuery;
         });
     }
