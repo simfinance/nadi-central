@@ -131,6 +131,13 @@ class TelemetryIngestionService
                     $applicationCache
                 );
 
+                if ($streamName === 'database_metrics')
+                {
+                    $record['data'] = $this->validateDatabaseMetricData(
+                        $record['data']
+                    );
+                }
+
                 $streamId = $this->resolveStream(
                     $agent,
                     $applicationId,
@@ -224,6 +231,15 @@ class TelemetryIngestionService
                         $streamId,
                         $agent
                     );
+
+                    if ($streamName === 'database_metrics')
+                    {
+                        $this->updateDatabaseProbeState(
+                            $record,
+                            $streamId,
+                            $agent
+                        );
+                    }
                 }
 
                 $this->updateSequence(
@@ -622,6 +638,211 @@ class TelemetryIngestionService
         ]);
     }
     
+
+    private function validateDatabaseMetricData(mixed $data): array
+    {
+        if (!is_array($data))
+        {
+            throw new HttpException(
+                422,
+                'Database metric data must be an object.'
+            );
+        }
+
+        $allowedKeys = [
+            'status',
+            'driver',
+            'latency_ms',
+            'checked_at',
+            'cache_hit',
+            'error_code',
+        ];
+
+        if (array_diff(array_keys($data), $allowedKeys))
+        {
+            throw new HttpException(
+                422,
+                'Database metric data contains unsupported fields.'
+            );
+        }
+
+        $status = $data['status'] ?? null;
+
+        if (!in_array($status, ['ok', 'failed'], true))
+        {
+            throw new HttpException(
+                422,
+                'Database metric status is invalid.'
+            );
+        }
+
+        $checkedAt = $data['checked_at'] ?? null;
+
+        if (!is_string($checkedAt) || trim($checkedAt) === '')
+        {
+            throw new HttpException(
+                422,
+                'Database metric checked_at is required.'
+            );
+        }
+
+        try
+        {
+            $checkedAt = Carbon::parse($checkedAt)
+                ->utc()
+                ->toIso8601String();
+        }
+        catch (Throwable $exception)
+        {
+            throw new HttpException(
+                422,
+                'Database metric checked_at is invalid.'
+            );
+        }
+
+        $latency = $data['latency_ms'] ?? null;
+
+        if (
+            !is_numeric($latency)
+            || !is_finite((float) $latency)
+            || (float) $latency < 0
+            || (float) $latency > 60000
+        )
+        {
+            throw new HttpException(
+                422,
+                'Database metric latency_ms is invalid.'
+            );
+        }
+
+        $cacheHit = $data['cache_hit'] ?? false;
+
+        if (!is_bool($cacheHit))
+        {
+            throw new HttpException(
+                422,
+                'Database metric cache_hit must be a boolean.'
+            );
+        }
+
+        $driver = $data['driver'] ?? null;
+        $errorCode = $data['error_code'] ?? null;
+
+        if ($status === 'ok')
+        {
+            if (!in_array($driver, ['mysql', 'pgsql', 'sqlite'], true))
+            {
+                throw new HttpException(
+                    422,
+                    'Successful database metrics require a supported driver.'
+                );
+            }
+
+            if ($errorCode !== null)
+            {
+                throw new HttpException(
+                    422,
+                    'Successful database metrics must not contain an error code.'
+                );
+            }
+        }
+        else
+        {
+            if (
+                !is_string($errorCode)
+                || $errorCode === ''
+                || strlen($errorCode) > 100
+            )
+            {
+                throw new HttpException(
+                    422,
+                    'Failed database metrics require a valid error code.'
+                );
+            }
+
+            if ($driver !== null)
+            {
+                throw new HttpException(
+                    422,
+                    'Failed database metrics must not include a driver.'
+                );
+            }
+        }
+
+        return [
+            'status' => $status,
+            'driver' => $driver,
+            'latency_ms' => round((float) $latency, 3),
+            'checked_at' => $checkedAt,
+            'cache_hit' => $cacheHit,
+            'error_code' => $errorCode,
+        ];
+    }
+
+    private function updateDatabaseProbeState(
+        array $record,
+        string $streamId,
+        NadiAgent $agent
+    ): void {
+        $data = $record['data'];
+        $applicationId = $record['application_id'];
+        $sequence = (int) $record['sequence'];
+        $probeAt = $this->toUtcDateTime($data['checked_at']);
+        $now = now('UTC')->format('Y-m-d H:i:s.u');
+
+        $state = DB::table('nadi_telemetry_database_probe_states')
+            ->where('stream_id', $streamId)
+            ->lockForUpdate()
+            ->first();
+
+        $previousSequence = (int) ($state->last_sequence ?? 0);
+        $isLatest = $sequence >= $previousSequence;
+        $failuresTotal = (int) ($state->failures_total ?? 0);
+
+        if ($data['status'] === 'failed')
+        {
+            $failuresTotal++;
+        }
+
+        $values = [
+            'agent_id' => $agent->id,
+            'application_id' => $applicationId,
+            'stream_id' => $streamId,
+            'last_sequence' => $isLatest
+                ? $sequence
+                : $previousSequence,
+            'last_status' => $isLatest
+                ? $data['status']
+                : $state->last_status,
+            'last_probe_at' => $isLatest
+                ? $probeAt
+                : $state->last_probe_at,
+            'last_success_at' => $isLatest && $data['status'] === 'ok'
+                ? $probeAt
+                : $state?->last_success_at,
+            'last_latency_ms' => $isLatest
+                ? $data['latency_ms']
+                : $state->last_latency_ms,
+            'failures_total' => $failuresTotal,
+            'updated_at' => $now,
+        ];
+
+        if (!$state)
+        {
+            $values['id'] = (string) Str::uuid();
+            $values['created_at'] = $now;
+
+            DB::table('nadi_telemetry_database_probe_states')
+                ->insert($values);
+
+            return;
+        }
+
+        DB::table('nadi_telemetry_database_probe_states')
+            ->where('stream_id', $streamId)
+            ->update($values);
+    }
+
     private function storeHttpEvent(
         array $record,
         string $batchInternalId,
