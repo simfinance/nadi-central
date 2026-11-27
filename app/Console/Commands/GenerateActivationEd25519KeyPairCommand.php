@@ -68,33 +68,36 @@ class GenerateActivationEd25519KeyPairCommand extends Command
             );
 
             $keyPair = sodium_crypto_sign_seed_keypair($seed);
-            $secretKey = sodium_crypto_sign_secretkey($keyPair);
             $publicKey = sodium_crypto_sign_publickey($keyPair);
-
-            $this->writeKeyFile(
-                $privatePath,
-                $seed,
-                0600
-            );
 
             try
             {
                 $this->writeKeyFile(
-                    $publicPath,
-                    $publicKey,
-                    0644
+                    $privatePath,
+                    $seed,
+                    0600
                 );
+
+                try
+                {
+                    $this->writeKeyFile(
+                        $publicPath,
+                        $publicKey,
+                        0644
+                    );
+                }
+                catch (Throwable $exception)
+                {
+                    @unlink($privatePath);
+
+                    throw $exception;
+                }
             }
-            catch (Throwable $exception)
+            finally
             {
-                @unlink($privatePath);
-
-                throw $exception;
+                sodium_memzero($seed);
+                sodium_memzero($keyPair);
             }
-
-            sodium_memzero($seed);
-            sodium_memzero($secretKey);
-            sodium_memzero($keyPair);
 
             $this->info(
                 'Ed25519 Activation Grant key pair generated.'
