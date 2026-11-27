@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\NadiAgent;
 use App\Models\NadiServer;
 use App\Services\Nadi\TelemetryRetentionService;
+use App\Services\TelemetryRetentionCleanupService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -141,10 +142,25 @@ class TelemetryRetentionServiceTest extends TestCase
             'created_at' => $currentTime,
         ]);
 
+        $recordKeyInternalId = (string) Str::uuid();
+
+        DB::table('nadi_telemetry_record_keys')->insert([
+            'id' => $recordKeyInternalId,
+            'agent_id' => $agent->id,
+            'stream_id' => $streamId,
+            'record_id' => $recordId,
+            'sequence' => 1,
+            'payload_hash' => hash('sha256', $recordId),
+            'first_seen_at' => $expiredAt,
+            'last_seen_at' => $expiredAt,
+            'created_at' => $expiredAt,
+        ]);
+
         return [
             'batch_internal_id' => $batchInternalId,
             'record_id' => $recordId,
             'record_internal_id' => $recordInternalId,
+            'record_key_internal_id' => $recordKeyInternalId,
         ];
     }
 
@@ -165,4 +181,36 @@ class TelemetryRetentionServiceTest extends TestCase
             'updated_at' => $now,
         ]);
     }
+    public function test_expired_record_key_is_preserved_while_telemetry_record_remains(): void
+    {
+        $fixture = $this->createTelemetryFixture(false);
+
+        $this->createRetentionPolicy('telemetry_record_keys', 30);
+
+        $result = app(TelemetryRetentionService::class)->prune();
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame(0, $result['deleted']['telemetry_record_keys']);
+
+        $this->assertDatabaseHas('nadi_telemetry_record_keys', [
+            'id' => $fixture['record_key_internal_id'],
+        ]);
+    }
+
+    public function test_scheduled_cleanup_preserves_record_key_while_event_remains(): void
+    {
+        $fixture = $this->createTelemetryFixture(false);
+
+        $this->createRetentionPolicy('telemetry_record_keys', 30);
+
+        $result = app(TelemetryRetentionCleanupService::class)->run();
+
+        $this->assertSame('completed', $result['telemetry_record_keys']['status']);
+        $this->assertSame(0, $result['telemetry_record_keys']['deleted']);
+
+        $this->assertDatabaseHas('nadi_telemetry_record_keys', [
+            'id' => $fixture['record_key_internal_id'],
+        ]);
+    }
+
 }
