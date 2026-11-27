@@ -253,9 +253,11 @@ return new class extends Migration
         $table->collation = 'utf8mb4_0900_ai_ci';
     }
 
-    private function asciiUuid(Blueprint $table, string $column): void
-    {
-        $table->char($column, 36)
+    private function asciiUuid(
+        Blueprint $table,
+        string $column
+    ): ColumnDefinition {
+        return $table->char($column, 36)
             ->charset('ascii')
             ->collation('ascii_bin');
     }
