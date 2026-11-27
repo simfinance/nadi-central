@@ -1,83 +1,83 @@
-# NADI Alerting Production Activation Runbook v1.0
+# Panduan Aktivasi Alerting NADI di Produksi v1.0
 
-## Status and scope
+## Status dan ruang lingkup
 
-This runbook describes a controlled production activation of the existing Prometheus alert rules, local Alertmanager integration, and authenticated NADI Central webhook.
+Panduan ini menjelaskan prosedur aktivasi produksi secara terkendali untuk aturan alert Prometheus yang sudah tersedia, integrasi Alertmanager lokal, dan webhook NADI Central yang menggunakan autentikasi.
 
-It is an operational procedure, not evidence that production activation has occurred. Follow the site's approved change window, access controls, backup policy, and deployment procedure.
+Dokumen ini merupakan prosedur operasional, bukan bukti bahwa aktivasi produksi telah dilakukan. Ikuti jendela perubahan yang disetujui, kontrol akses, kebijakan pencadangan, dan prosedur deployment yang berlaku di lingkungan tersebut.
 
-This activation is limited to alert evaluation and persistence in NADI Central. It does not configure SMTP, Telegram, external notification destinations, Agent behavior, or automated remediation.
+Aktivasi ini terbatas pada evaluasi alert dan penyimpanan data alert di NADI Central. Aktivasi ini tidak mencakup konfigurasi SMTP, Telegram, tujuan notifikasi eksternal, perubahan perilaku Agent, maupun remediasi otomatis.
 
-## Preconditions
+## Prasyarat
 
-Do not begin the production change until all of the following are true:
+Jangan mulai melakukan perubahan di produksi sebelum seluruh kondisi berikut terpenuhi:
 
-- The Central webhook implementation and its database migration have been reviewed and deployed through the approved Central release process.
-- The migration creating `nadi_alerts` and `nadi_alert_events` has completed successfully.
-- The Central application is reachable over HTTPS at the webhook URL.
-- The Prometheus and Alertmanager services are healthy and remain bound to their approved local-only listeners.
-- The current Prometheus and Alertmanager configurations have been backed up and their paths/owners recorded.
-- A dedicated webhook secret has been generated and transferred through an approved secret-handling channel.
-- The Central environment and Alertmanager secret file can be updated without exposing the secret in source control, shell history, terminal recordings, or logs.
-- The operator has a rollback window and permission to reload the two services.
+- Implementasi webhook Central dan migrasi databasenya telah ditinjau serta di-deploy melalui proses rilis Central yang disetujui.
+- Migrasi yang membuat tabel `nadi_alerts` dan `nadi_alert_events` telah selesai dengan sukses.
+- Aplikasi Central dapat diakses melalui HTTPS pada URL webhook.
+- Layanan Prometheus dan Alertmanager dalam kondisi sehat serta tetap terikat hanya pada listener lokal yang telah disetujui.
+- Konfigurasi Prometheus dan Alertmanager saat ini telah dicadangkan, dan lokasi serta pemilik file backup telah dicatat.
+- Secret webhook khusus telah dibuat dan dikirimkan melalui kanal pengelolaan secret yang disetujui.
+- Environment Central dan file secret Alertmanager dapat diperbarui tanpa mengekspos secret di source control, riwayat shell, rekaman terminal, atau log.
+- Operator memiliki jendela rollback dan izin untuk melakukan reload pada kedua layanan.
 
-If any precondition is not met, stop. Do not compensate by bypassing authentication, exposing local APIs, or changing Agent configuration.
+Jika salah satu prasyarat belum terpenuhi, hentikan proses. Jangan mengatasinya dengan melewati autentikasi, mengekspos API lokal, atau mengubah konfigurasi Agent.
 
-## Fixed integration values
+## Nilai integrasi yang telah ditetapkan
 
-| Item | Value |
+| Item | Nilai |
 | --- | --- |
-| Central webhook | `https://nadi.pesantrenalirsyad.org/api/v1/nadi/alertmanager/webhook` |
-| Central environment key | `NADI_ALERTMANAGER_WEBHOOK_TOKEN` |
-| Alertmanager token file | `/etc/alertmanager/secrets/nadi-central-webhook-token` |
-| Alertmanager local target | `127.0.0.1:9093` |
-| Prometheus rule file | `/etc/prometheus/rules/nadi-alert-rules.yml` |
+| Webhook Central | `https://nadi.pesantrenalirsyad.org/api/v1/nadi/alertmanager/webhook` |
+| Key environment Central | `NADI_ALERTMANAGER_WEBHOOK_TOKEN` |
+| File token Alertmanager | `/etc/alertmanager/secrets/nadi-central-webhook-token` |
+| Target lokal Alertmanager | `127.0.0.1:9093` |
+| File aturan Prometheus | `/etc/prometheus/rules/nadi-alert-rules.yml` |
 
-The webhook secret is separate from Agent credentials and `NADI_PROMETHEUS_METRICS_TOKEN`. Never commit the secret or include it in alert labels/annotations.
+Secret webhook harus berbeda dari credential Agent dan `NADI_PROMETHEUS_METRICS_TOKEN`. Jangan pernah melakukan commit terhadap secret atau memasukkannya ke dalam label maupun anotasi alert.
 
-## Activation sequence
+## Urutan aktivasi
 
-Perform one stage at a time. Record the result before proceeding.
+Lakukan satu tahap pada satu waktu. Catat hasilnya sebelum melanjutkan ke tahap berikutnya.
 
-### Stage 1 — Prepare and back up
+### Tahap 1 — Persiapan dan pencadangan
 
-1. Confirm the active service names, service accounts, configuration paths, and approved reload mechanism on the host.
-2. Back up `/etc/prometheus/prometheus.yml` and `/etc/alertmanager/alertmanager.yml` to timestamped, access-restricted files.
-3. Confirm the current Prometheus targets are healthy and record the current Alertmanager service state.
-4. Confirm the Central webhook release and migration are complete before configuring Alertmanager to send to it.
+1. Pastikan nama layanan yang aktif, akun layanan, lokasi konfigurasi, dan mekanisme reload yang disetujui pada server.
+2. Cadangkan `/etc/prometheus/prometheus.yml` dan `/etc/alertmanager/alertmanager.yml` ke file dengan nama bertimestamp dan akses terbatas.
+3. Pastikan target Prometheus saat ini sehat dan catat status layanan Alertmanager saat ini.
+4. Pastikan rilis webhook Central dan migrasinya telah selesai sebelum Alertmanager dikonfigurasi untuk mengirimkan alert ke webhook tersebut.
 
-Do not overwrite either configuration with a repository example. Both examples are merge references.
+Jangan menimpa konfigurasi mana pun menggunakan contoh konfigurasi dari repository. Kedua contoh tersebut hanya menjadi referensi untuk penggabungan konfigurasi.
 
-### Stage 2 — Configure the dedicated webhook secret
+### Tahap 2 — Konfigurasi secret webhook khusus
 
-1. Generate one high-entropy random secret using the site's approved secret-generation method. A 32-byte random value or stronger is appropriate.
-2. Set that exact value as `NADI_ALERTMANAGER_WEBHOOK_TOKEN` in the Central environment using the approved secret-handling process.
-3. Store the same value in `/etc/alertmanager/secrets/nadi-central-webhook-token` on the Alertmanager host.
-4. Restrict the secret directory and file so only the Alertmanager service account and trusted administrators can read them. Confirm the service account can read the file.
-5. Do not put the secret value in a command argument, shell history, source control, ticket, screenshot, or log.
+1. Buat satu secret acak dengan entropi tinggi menggunakan metode pembuatan secret yang disetujui di lingkungan tersebut. Nilai acak 32 byte atau lebih kuat sudah sesuai.
+2. Tetapkan nilai yang sama sebagai `NADI_ALERTMANAGER_WEBHOOK_TOKEN` pada environment Central melalui prosedur pengelolaan secret yang disetujui.
+3. Simpan nilai yang sama pada `/etc/alertmanager/secrets/nadi-central-webhook-token` di host Alertmanager.
+4. Batasi izin direktori dan file secret agar hanya akun layanan Alertmanager dan administrator tepercaya yang dapat membacanya. Pastikan akun layanan dapat membaca file tersebut.
+5. Jangan menempatkan nilai secret sebagai argumen perintah, dalam riwayat shell, source control, tiket, tangkapan layar, atau log.
 
-After changing the Central environment, refresh Laravel's configuration cache using the site's approved deployment procedure. Do not run broad cache-clearing commands as an improvised substitute for the approved release process.
+Setelah environment Central diubah, perbarui cache konfigurasi Laravel menggunakan prosedur deployment yang disetujui. Jangan menjalankan perintah pembersihan cache secara luas sebagai pengganti prosedur rilis yang semestinya.
 
-### Stage 3 — Configure Alertmanager receiver
+### Tahap 3 — Konfigurasi receiver Alertmanager
 
-1. Merge the receiver and route settings from `docs/operations/alertmanager/alertmanager.yml.example` into the existing Alertmanager configuration.
-2. Preserve unrelated, approved routes, receivers, inhibition rules, and global settings. Resolve route conflicts deliberately; do not blindly replace the existing file.
-3. Keep the Alertmanager listener bound to `127.0.0.1:9093`.
-4. Validate the complete merged configuration:
+1. Gabungkan pengaturan receiver dan route dari `docs/operations/alertmanager/alertmanager.yml.example` ke konfigurasi Alertmanager yang sudah ada.
+2. Pertahankan route, receiver, inhibition rule, dan pengaturan global lain yang telah disetujui dan tidak terkait perubahan ini. Selesaikan konflik route secara sengaja; jangan mengganti seluruh file secara langsung.
+3. Pastikan listener Alertmanager tetap terikat pada `127.0.0.1:9093`.
+4. Validasi konfigurasi hasil penggabungan secara lengkap:
 
 ```bash
 amtool check-config /etc/alertmanager/alertmanager.yml
 ```
 
-5. If validation fails, stop and restore/fix the configuration before any reload.
-6. Reload or restart Alertmanager using the site's approved change procedure.
-7. Confirm the service is active and inspect service logs for configuration or delivery errors. Do not print or log the bearer token.
+5. Jika validasi gagal, hentikan proses dan pulihkan atau perbaiki konfigurasi sebelum melakukan reload.
+6. Lakukan reload atau restart Alertmanager menggunakan prosedur perubahan yang disetujui.
+7. Pastikan layanan berstatus aktif dan periksa log layanan untuk menemukan kesalahan konfigurasi atau pengiriman. Jangan mencetak atau mencatat bearer token.
 
-### Stage 4 — Install Prometheus rules and connect Alertmanager
+### Tahap 4 — Memasang aturan Prometheus dan menghubungkannya ke Alertmanager
 
-1. Install `docs/operations/prometheus/nadi-alert-rules.yml` at `/etc/prometheus/rules/nadi-alert-rules.yml`.
-2. Ensure the Prometheus service account can read the rule file and its parent directory.
-3. Merge the following sections into the existing `/etc/prometheus/prometheus.yml`. Preserve the existing `global` and `scrape_configs` sections and all unrelated settings:
+1. Pasang `docs/operations/prometheus/nadi-alert-rules.yml` ke `/etc/prometheus/rules/nadi-alert-rules.yml`.
+2. Pastikan akun layanan Prometheus dapat membaca file aturan beserta direktori induknya.
+3. Gabungkan bagian berikut ke konfigurasi `/etc/prometheus/prometheus.yml` yang sudah ada. Pertahankan bagian `global` dan `scrape_configs` beserta seluruh pengaturan lain yang tidak terkait:
 
 ```yaml
 rule_files:
@@ -90,70 +90,70 @@ alerting:
                     - 127.0.0.1:9093
 ```
 
-4. Validate the rule file:
+4. Validasi file aturan:
 
 ```bash
 promtool check rules /etc/prometheus/rules/nadi-alert-rules.yml
 ```
 
-5. Validate the complete Prometheus configuration:
+5. Validasi seluruh konfigurasi Prometheus:
 
 ```bash
 promtool check config /etc/prometheus/prometheus.yml
 ```
 
-6. If either validation fails, stop. Do not reload Prometheus with invalid configuration.
-7. Reload or restart Prometheus using the site's approved change procedure.
+6. Jika salah satu validasi gagal, hentikan proses. Jangan melakukan reload Prometheus dengan konfigurasi yang tidak valid.
+7. Lakukan reload atau restart Prometheus menggunakan prosedur perubahan yang disetujui.
 
-### Stage 5 — Verify end-to-end delivery
+### Tahap 5 — Verifikasi pengiriman dari ujung ke ujung
 
-1. Confirm Prometheus targets remain healthy.
-2. Confirm the rule groups are loaded and evaluate without errors.
-3. Confirm Prometheus reports the local Alertmanager as configured/reachable.
-4. Trigger one controlled, non-disruptive test alert using an approved test method. Do not induce real CPU, memory, disk, network, or application failures on production.
-5. Confirm Alertmanager receives the firing notification and posts it to the Central webhook.
-6. Confirm the alert appears in NADI Central Alert Management and that one corresponding event is persisted.
-7. Confirm a resolved notification updates the alert state and creates the expected state-history event.
-8. Confirm duplicate delivery does not create duplicate history rows.
-9. Review logs for delivery failures without exposing credentials or sensitive payloads.
+1. Pastikan target Prometheus tetap sehat.
+2. Pastikan kelompok aturan telah dimuat dan dievaluasi tanpa kesalahan.
+3. Pastikan Prometheus melaporkan Alertmanager lokal sebagai tujuan yang telah dikonfigurasi dan dapat dijangkau.
+4. Picu satu alert pengujian yang terkendali dan tidak mengganggu, menggunakan metode pengujian yang disetujui. Jangan sengaja menimbulkan gangguan CPU, memori, disk, jaringan, atau aplikasi di produksi.
+5. Pastikan Alertmanager menerima notifikasi berstatus firing dan mengirimkannya ke webhook Central.
+6. Pastikan alert muncul di menu Alert Management NADI Central dan satu event terkait tersimpan.
+7. Pastikan notifikasi resolved memperbarui status alert dan membuat event histori perubahan status yang diharapkan.
+8. Pastikan pengiriman duplikat tidak membuat baris histori duplikat.
+9. Periksa log untuk menemukan kegagalan pengiriman tanpa mengekspos credential atau payload sensitif.
 
-Do not declare activation complete until both firing and resolved delivery have been observed. If a safe test cannot be performed, record the integration as configured but not end-to-end verified.
+Jangan menyatakan aktivasi selesai sebelum pengiriman firing dan resolved sama-sama berhasil diamati. Jika pengujian yang aman tidak dapat dilakukan, catat integrasi sebagai sudah dikonfigurasi tetapi belum terverifikasi dari ujung ke ujung.
 
 ## Rollback
 
-Rollback only the components changed during this activation.
+Lakukan rollback hanya pada komponen yang diubah selama aktivasi ini.
 
-1. If delivery is failing or the Central endpoint is unavailable, restore the previous Alertmanager configuration from the recorded backup and validate it with `amtool check-config`.
-2. Reload/restart Alertmanager using the approved procedure. This stops webhook delivery without exposing Alertmanager publicly.
-3. If Prometheus rule evaluation or Alertmanager connectivity is unhealthy, restore the previous Prometheus configuration and validate it with `promtool check config`.
-4. Remove the newly installed rule file only if it was introduced by this change and the restored Prometheus configuration no longer references it.
-5. Reload/restart Prometheus using the approved procedure.
-6. Revoke/rotate the dedicated webhook secret if it may have been exposed. Update Central and Alertmanager together through the approved secret procedure.
-7. Preserve Central alert records and event history for investigation. Do not drop the alert tables as part of routine rollback.
-8. Confirm Prometheus scraping and the pre-change monitoring path are healthy again.
+1. Jika pengiriman gagal atau endpoint Central tidak tersedia, pulihkan konfigurasi Alertmanager sebelumnya dari backup yang telah dicatat, lalu validasi dengan `amtool check-config`.
+2. Lakukan reload/restart Alertmanager menggunakan prosedur yang disetujui. Langkah ini menghentikan pengiriman webhook tanpa mengekspos Alertmanager ke jaringan publik.
+3. Jika evaluasi aturan Prometheus atau konektivitas Alertmanager tidak sehat, pulihkan konfigurasi Prometheus sebelumnya dan validasi dengan `promtool check config`.
+4. Hapus file aturan yang baru dipasang hanya jika file tersebut memang dibuat oleh perubahan ini dan konfigurasi Prometheus yang telah dipulihkan tidak lagi merujuk kepadanya.
+5. Lakukan reload/restart Prometheus menggunakan prosedur yang disetujui.
+6. Cabut atau rotasi secret webhook khusus jika ada kemungkinan secret tersebut terekspos. Perbarui Central dan Alertmanager secara bersamaan melalui prosedur pengelolaan secret yang disetujui.
+7. Pertahankan record alert dan histori event di Central untuk keperluan investigasi. Jangan menghapus tabel alert sebagai bagian dari rollback rutin.
+8. Pastikan proses scraping Prometheus dan jalur monitoring sebelum perubahan kembali sehat.
 
-Do not roll back unrelated routes, receivers, scrape jobs, Agent settings, or application configuration.
+Jangan melakukan rollback terhadap route, receiver, scrape job, pengaturan Agent, atau konfigurasi aplikasi lain yang tidak terkait.
 
-## Completion record
+## Catatan penyelesaian perubahan
 
-Record the following in the change ticket or approved operations log:
+Catat informasi berikut pada tiket perubahan atau log operasional yang disetujui:
 
-- Change window and operator.
-- Backup locations and timestamps (do not attach secrets).
-- Central release identifier and migration result.
-- Prometheus and Alertmanager validation results.
-- Service reload/restart results.
-- Firing delivery result and Central alert reference.
-- Resolved delivery result and history reference.
-- Duplicate-delivery behavior.
-- Any warnings, deviations, or rollback actions.
+- Jendela perubahan dan operator yang melaksanakan.
+- Lokasi serta waktu backup (jangan lampirkan secret).
+- Identitas rilis Central dan hasil migrasi.
+- Hasil validasi Prometheus dan Alertmanager.
+- Hasil reload/restart layanan.
+- Hasil pengiriman firing dan referensi alert di Central.
+- Hasil pengiriman resolved dan referensi histori.
+- Perilaku saat menerima pengiriman duplikat.
+- Peringatan, penyimpangan prosedur, atau tindakan rollback yang dilakukan.
 
-## Operational boundaries
+## Batasan operasional
 
-- Prometheus evaluates metrics and forwards alert notifications.
-- Alertmanager groups and routes notifications to the Central webhook.
-- NADI Central authenticates the webhook and persists alert metadata/history.
-- SMTP, Telegram, and other external notification destinations are outside this activation.
-- No automated remediation is performed.
-- No Agent contract, database, or runtime behavior is changed by this procedure.
-- Production configuration is changed only by an operator following the approved change process.
+- Prometheus mengevaluasi metrics dan meneruskan notifikasi alert.
+- Alertmanager mengelompokkan dan meneruskan notifikasi ke webhook Central.
+- NADI Central mengautentikasi webhook serta menyimpan metadata dan histori alert.
+- SMTP, Telegram, dan tujuan notifikasi eksternal lainnya berada di luar cakupan aktivasi ini.
+- Tidak ada remediasi otomatis yang dilakukan.
+- Tidak ada kontrak, database, atau perilaku runtime Agent yang diubah oleh prosedur ini.
+- Konfigurasi produksi hanya boleh diubah oleh operator yang mengikuti proses perubahan yang disetujui.
