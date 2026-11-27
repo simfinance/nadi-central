@@ -33,6 +33,7 @@ jobs:
       DB_DATABASE: nadi
       DB_USERNAME: root
       DB_PASSWORD: root
+      NADI_PROMETHEUS_METRICS_TOKEN: ci-prometheus-token
 
     steps:
       - name: Checkout repository
@@ -70,3 +71,95 @@ jobs:
       - name: Verify Agent Ed25519 compatibility
         working-directory: tests/AgentCompatibility
         run: go test ./...
+
+      - name: Start Central HTTP server
+        run: |
+          nohup php artisan serve --host=0.0.0.0 --port=8000 > /tmp/nadi-central-server.log 2>&1 &
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent \
+              -H "Authorization: Bearer ${NADI_PROMETHEUS_METRICS_TOKEN}" \
+              http://127.0.0.1:8000/api/internal/prometheus/metrics \
+              > /tmp/nadi-central-metrics.txt; then
+              break
+            fi
+
+            sleep 1
+          done
+
+          grep -q 'nadi_prometheus_exporter_up 1' /tmp/nadi-central-metrics.txt
+
+      - name: Verify real Prometheus scrape
+        run: |
+          cat > /tmp/nadi-prometheus.yml <<EOF
+          global:
+            scrape_interval: 2s
+            scrape_timeout: 1s
+          scrape_configs:
+            - job_name: nadi-central
+              metrics_path: /api/internal/prometheus/metrics
+              authorization:
+                type: Bearer
+                credentials: ${NADI_PROMETHEUS_METRICS_TOKEN}
+              static_configs:
+                - targets:
+                    - host.docker.internal:8000
+          EOF
+
+          docker run -d \
+            --name nadi-central-prometheus-ci \
+            --add-host=host.docker.internal:host-gateway \
+            -p 9090:9090 \
+            -v /tmp/nadi-prometheus.yml:/etc/prometheus/prometheus.yml:ro \
+            prom/prometheus:v3.5.0 \
+            --config.file=/etc/prometheus/prometheus.yml
+
+          python - <<'PY'
+          import json
+          import time
+          from urllib.request import urlopen
+
+          target_is_up = False
+
+          for _ in range(30):
+              try:
+                  with urlopen(
+                      "http://127.0.0.1:9090/api/v1/targets",
+                      timeout=3
+                  ) as response:
+                      payload = json.load(response)
+
+                  targets = payload["data"]["activeTargets"]
+                  target_is_up = any(
+                      target["labels"].get("job") == "nadi-central"
+                      and target["health"] == "up"
+                      for target in targets
+                  )
+
+                  if target_is_up:
+                      break
+              except Exception:
+                  pass
+
+              time.sleep(1)
+
+          if not target_is_up:
+              raise SystemExit("Prometheus did not successfully scrape Central.")
+
+          with urlopen(
+              "http://127.0.0.1:9090/api/v1/query?query=nadi_prometheus_exporter_up",
+              timeout=3
+          ) as response:
+              query = json.load(response)
+
+          samples = query["data"]["result"]
+
+          if not any(float(sample["value"][1]) == 1 for sample in samples):
+              raise SystemExit("Prometheus did not ingest nadi_prometheus_exporter_up=1.")
+
+          print("Prometheus successfully scraped and queried Central metrics.")
+          PY
+
+      - name: Stop Prometheus CI container
+        if: always()
+        run: docker rm -f nadi-central-prometheus-ci || true
