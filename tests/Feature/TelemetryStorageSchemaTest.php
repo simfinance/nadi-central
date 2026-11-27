@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use Illuminate\\Foundation\\Testing\\DatabaseTransactions;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Schema;
-use Tests\\TestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
 
 class TelemetryStorageSchemaTest extends TestCase
 {
