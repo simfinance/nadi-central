@@ -265,7 +265,8 @@ class PrometheusDatabaseTelemetryExportTest extends TestCase
         array $identity,
         int $sequence,
         array $data
-    ): array {
+    ): array
+    {
         $timestamp = now('UTC')->toIso8601String();
 
         return [
