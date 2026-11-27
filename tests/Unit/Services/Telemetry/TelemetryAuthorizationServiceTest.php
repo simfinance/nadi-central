@@ -4,6 +4,7 @@ namespace Tests\Unit\Services\Telemetry;
 
 use App\Services\Activation\GrantSigner;
 use App\Services\Telemetry\TelemetryAuthorizationService;
+use App\Services\Telemetry\TelemetryStreamRegistry;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 use ReflectionMethod;
