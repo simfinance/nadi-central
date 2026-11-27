@@ -103,4 +103,44 @@ class TelemetryStorageSchemaTest extends TestCase
             (int) $result[0]->aggregate
         );
     }
+    public function test_activation_grants_contains_acknowledgement_fields(): void
+    {
+        $columns = [
+            'acknowledgement_status',
+            'acknowledgement_request_id',
+            'acknowledged_at',
+            'acknowledgement_error_code',
+            'acknowledgement_message',
+        ];
+
+        foreach ($columns as $column)
+        {
+            $this->assertTrue(
+                Schema::hasColumn('nadi_activation_grants', $column),
+                'Missing activation grant acknowledgement column: ' . $column
+            );
+        }
+    }
+
+    public function test_acknowledgement_request_id_has_a_unique_index(): void
+    {
+        $result = DB::selectOne(
+            'SELECT COUNT(*) AS aggregate
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = ?
+                AND INDEX_NAME = ?
+                AND NON_UNIQUE = 0',
+            [
+                'nadi_activation_grants',
+                'uq_nadi_grant_ack_request_id',
+            ]
+        );
+
+        $this->assertSame(
+            1,
+            (int) $result->aggregate
+        );
+    }
+
 }
