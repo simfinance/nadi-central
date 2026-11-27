@@ -783,7 +783,8 @@ class TelemetryIngestionService
         array $record,
         string $streamId,
         NadiAgent $agent
-    ): void {
+    ): void
+    {
         $data = $record['data'];
         $applicationId = $record['application_id'];
         $sequence = (int) $record['sequence'];
