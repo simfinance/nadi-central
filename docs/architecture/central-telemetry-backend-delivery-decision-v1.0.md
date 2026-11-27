@@ -32,6 +32,7 @@ The following points are based on source inspection and the successful isolated 
 8. No Loki push adapter or Loki delivery worker was found in the inspected Central source.
 9. The current generic telemetry path stores raw metrics and logs in MySQL. MySQL therefore currently acts as telemetry intake/staging and also retains raw records; Prometheus TSDB history is populated only when the scrape exporter is successfully scraped.
 10. Log ingestion remains disabled by default through `NADI_TELEMETRY_LOGS_ENABLED=false`.
+11. The Agent Side Monitoring Specification describes JSONL+gzip batches, while the inspected Agent sender currently posts a JSON batch envelope with `Content-Type: application/json`; the Central endpoint currently validates that JSON envelope. Current Agent source and Central source therefore match each other, but the written Agent specification differs. Resolve and version this wire-contract discrepancy before production rollout; do not silently change either side.
 8. The stream registry recognizes these streams but has no capability mapping for them, so authorization rejects them:
    - `nginx_access_logs`
    - `application_events`
@@ -142,6 +143,7 @@ No Prometheus or Loki retention change should be issued until the global policy 
 5. **Retry/quarantine:** approve retry age/count and operator alert thresholds.
 6. **Retention taxonomy:** approve the data classes and their backend-specific retention mapping.
 7. **Deployment prerequisites:** provide/confirm non-production Prometheus/Loki endpoints, authentication, TLS, and supported server versions.
+8. **Agent/Central wire contract:** approve the current JSON batch envelope or the JSONL+gzip format in the Agent-side specification, then publish a versioned compatibility matrix.
 
 ## 5. Implementation gates after approval
 
