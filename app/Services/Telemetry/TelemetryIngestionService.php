@@ -804,6 +804,21 @@ class TelemetryIngestionService
             $failuresTotal++;
         }
 
+        $lastSuccessAt = $state?->last_success_at;
+
+        if ($data['status'] === 'ok')
+        {
+            if (
+                $lastSuccessAt === null
+                || Carbon::parse($probeAt)->gt(
+                    Carbon::parse($lastSuccessAt)
+                )
+            )
+            {
+                $lastSuccessAt = $probeAt;
+            }
+        }
+
         $values = [
             'agent_id' => $agent->id,
             'application_id' => $applicationId,
@@ -817,9 +832,7 @@ class TelemetryIngestionService
             'last_probe_at' => $isLatest
                 ? $probeAt
                 : $state->last_probe_at,
-            'last_success_at' => $isLatest && $data['status'] === 'ok'
-                ? $probeAt
-                : $state?->last_success_at,
+            'last_success_at' => $lastSuccessAt,
             'last_latency_ms' => $isLatest
                 ? $data['latency_ms']
                 : $state->last_latency_ms,
