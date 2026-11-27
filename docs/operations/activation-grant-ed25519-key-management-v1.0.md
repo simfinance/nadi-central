@@ -16,7 +16,7 @@ Implementasi Central dan Agent harus menggunakan algoritma Ed25519 yang sama. Ce
 
 Agent saat ini menerima raw 32-byte public key atau PEM PKIX Ed25519 public key. Command Central menghasilkan raw 32-byte public key yang dapat digunakan langsung sebagai file public key Agent.
 
-Jangan mengirim private seed ke Agent. Jangan menyimpan private seed di MySQL, source control, image container, atau backup yang tidak terenkripsi.
+Jangan mengirim private seed ke Agent. Jangan menyimpan private seed produksi di MySQL, source control, image container, atau backup yang tidak terenkripsi. Satu seed deterministik yang bersifat publik hanya tersedia di `tests/fixtures/activation-grant-ed25519-vector.json` untuk pengujian lintas bahasa; seed tersebut test-only dan tidak boleh digunakan pada environment apa pun.
 
 ## 3. Membuat key pair
 
