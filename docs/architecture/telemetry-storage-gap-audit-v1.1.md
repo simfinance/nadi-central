@@ -3,7 +3,7 @@
 Date: 27 November 2026
 Repository: `simfinance/nadi-central`
 Base branch: `security/telemetry-capability-enforcement`
-Audited commit: `d5a9bd0c6f84623186a17da69d51aaefbc718c59`
+Follow-up baseline: `6cd6ffb31fdfe91297eb7a1376900468cbb3a2ef`
 Scope: source repository inspection only
 
 ## 1. Governing architecture requirements
@@ -64,7 +64,7 @@ The ingestion and cleanup code directly queries or writes these tables. Therefor
 
 This finding does not prove that the tables are absent from an existing Central database. They may have been created by manually executed SQL or another untracked process. Live database state was not available for this audit.
 
-Follow-up completed at the source-review level: complete CREATE TABLE definitions were supplied and reconciled with the ingestion source (finding 3.7). A forward-only migration is available for review in draft PR #3. Existing live database state, schema drift, migration execution, and deployment readiness remain unverified. Do not use destructive schema replacement.
+Follow-up completed in repository PR #3: the six-table forward-only migration was merged, and a fresh MySQL 8.4 CI database successfully applied the complete Central migration chain. This proves reproducibility from the checked-in baseline in CI; it does not prove the live production database is free of schema drift. Existing telemetry tables are skipped when present, so compare live `SHOW CREATE TABLE` output before deployment. Do not use destructive schema replacement.
 
 ### 3.2 Current ingestion persists raw telemetry in MySQL
 
@@ -121,9 +121,9 @@ These are not yet a complete representation of the Master Architecture's backend
 
 The current cleanup service only deletes configured MySQL tables. There is no evidence in the inspected implementation that a policy update changes Prometheus or Loki retention.
 
-### 3.7 Alternate prune command contains a confirmed helper-call defect
+### 3.7 Alternate prune command helper-call defect (fixed in PR #3)
 
-The source for `app/Services/Nadi/TelemetryRetentionService.php` declares the private helper as:
+The original source at the audited commit declared the private helper as:
 
 ```php
 private function deleteInChunks(
@@ -139,7 +139,7 @@ However, both `deleteExpiredRows()` and `deleteExpiredBatches()` call it with on
 
 The alternate command `nadi:telemetry:prune` invokes this service. When an enabled policy reaches either deletion path, PHP will raise an argument-count error because the required `$query` parameter is missing after the single argument is bound to `$table`.
 
-This is a static source finding; the command was not executed. The command is not scheduled in the inspected `routes/console.php`, and external operational use remains unverified. Do not switch the scheduled cleanup to this command or treat it as a working fallback. Any fix must be reviewed together with its table/query chunking behavior and tests, and only after confirming whether external operations depend on the command.
+PR #3 corrected both call sites to pass the table name and added MySQL regression tests for expired-record deletion, child-before-batch deletion, and preservation of batches with remaining dependent records. CI passed these tests. The command remains unscheduled in the inspected `routes/console.php`; external operational use remains unverified. Do not switch the scheduled cleanup to this command until its operational ownership and policy semantics are reviewed.
 
 ### 3.6 Log ingestion remains disabled by default
 
@@ -158,13 +158,46 @@ The reviewed column and constraint contract is consistent with the fields used b
 - HTTP event persistence uses the supplied HTTP metadata fields, including sequence, status, sizes, durations, sanitized request URI, and JSON metadata.
 - Sequence-gap tracking uses the supplied nullable sequence range, status, and detected/resolved timestamps.
 
-A forward-only Laravel migration has been prepared separately in draft PR #3:
+The following forward-only Laravel migrations were merged in PR #3:
 
-- Branch: `feature/central-telemetry-schema-migration`
-- File: `database/migrations/2026_11_27_000001_create_nadi_telemetry_storage_tables.php`
+- `database/migrations/2026_11_27_000001_create_nadi_telemetry_storage_tables.php`
+- `database/migrations/2026_11_27_000002_add_activation_grant_acknowledgement_fields.php`
+- `database/migrations/2026_11_27_000003_add_monitoring_suspension_timestamp_to_nadi_applications.php`
 - PR: https://github.com/simfinance/nadi-central/pull/3
 
-The migration creates each telemetry table only when it is absent. It does not alter an existing table, reconcile schema drift, or drop telemetry data on rollback. It depends on the base schema already providing `nadi_agents` and `nadi_applications`. The migration has not yet been executed against a database, and no runtime or test result is claimed.
+The telemetry migration creates each telemetry table only when absent. It does not alter an existing table or reconcile schema drift. All three migrations are forward-only and intentionally do not remove persisted telemetry, grant acknowledgement, or suspension state on rollback. The migration chain was executed successfully on a fresh MySQL 8.4.13 CI database after importing the checked-in baseline.
+
+
+### 3.8 Activation grant acknowledgement schema was missing
+
+The checked-in baseline definition for `nadi_activation_grants` did not include fields used by `NadiActivationGrant`, `ActivationGrantService`, and `ActivationAcknowledgementService`:
+
+- `acknowledgement_status`
+- `acknowledgement_request_id`
+- `acknowledged_at`
+- `acknowledgement_error_code`
+- `acknowledgement_message`
+
+The absence caused authorization and activation-grant tests to fail against a fresh database. PR #3 added these columns and a unique index on `acknowledgement_request_id`. Existing grant rows receive the safe default status `pending`; do not infer successful Agent acknowledgement from an existing application status during production rollout.
+
+### 3.9 Application monitoring suspension timestamp was missing
+
+The baseline definition for `nadi_applications` did not include `monitoring_suspended_at`, although `ApplicationMonitoringService`, activation acknowledgement handling, and telemetry authorization use it. PR #3 added the nullable microsecond-precision timestamp and updated the `NadiApplication` model fillable/cast metadata.
+
+### 3.10 Fresh-schema CI validation is now available
+
+PR #3 added `.github/workflows/central-ci.yml`. The workflow:
+
+1. Starts an isolated MySQL 8.4 service.
+2. Imports `database/schema/nadi-baseline.sql`.
+3. Runs the complete Central migration chain.
+4. Runs the PHPUnit suite.
+
+The successful run used PHP 8.4.28 and MySQL 8.4.13 and completed with 49 tests passed and 155 assertions. This is CI validation only; it is not a production migration or runtime verification.
+
+### 3.11 PHP runtime requirement is inconsistent in Composer metadata
+
+The repository declares PHP `^8.3` in `composer.json`, while the locked dependency set includes Symfony 8.1 packages requiring PHP 8.4.1 or newer. The CI runner therefore uses PHP 8.4.28. Verify the production Central PHP runtime before deployment and reconcile the declared Composer platform requirement with the supported runtime. No production runtime was inspected or changed.
 
 ## 4. Decisions that remain open
 
@@ -189,7 +222,7 @@ No paid service or paid dependency is required or proposed by this audit. Any im
 
 This is a sequence recommendation, not a new architecture approval:
 
-1. Reconcile the executed SQL/schema delta with the repository and produce forward-only migrations for the approved Central metadata model.
+1. Before production rollout, compare the live Central schema against all three merged forward-only migrations and reconcile any pre-existing schema drift without destructive replacement.
 2. Approve the Central-to-Prometheus and Central-to-Loki write contracts, including identity/label mapping and ACK durability semantics.
 3. Define one authoritative retention orchestration path; retire or consolidate the duplicate MySQL cleanup path only after confirming no external operational dependency.
 4. Implement backend adapters and durable failure handling according to the approved contracts.
@@ -200,17 +233,17 @@ This is a sequence recommendation, not a new architecture approval:
 
 ## 6. Explicit non-actions
 
-During this audit:
+During the original source audit, no source code, migration, database, or production configuration was changed. Subsequent repository follow-up is recorded in PR #3. Across the audit and follow-up:
 
-- No source code, migration, database, or production configuration was changed.
+- No production database or production server was accessed or modified.
 - No Agent repository was modified.
 - No Prometheus or Loki endpoint was contacted.
 - No telemetry was fabricated.
-- No test result or runtime readiness is claimed.
+- CI success is limited to the isolated MySQL test environment; production readiness is not claimed.
 - ADR-001 through ADR-009 were not modified.
 
 ## 7. Checkpoint
 
-The current Central branch has an Agent-facing telemetry intake and MySQL persistence implementation. The checked-in baseline schema and migrations initially did not reproduce the six telemetry tables used by that implementation. Complete DDL has since been supplied and reconciled with ingestion source; a forward-only migration is under review in draft PR #3. The scheduled MySQL retention path is identifiable, while a second overlapping prune service is present but not scheduled in the inspected console schedule. Prometheus/Loki write and retention integration remain unimplemented in the inspected source.
+PR #2 documentation audit and PR #3 schema/CI follow-up are merged into `security/telemetry-capability-enforcement`. PR #3 adds the six telemetry tables, activation-grant acknowledgement fields, the application monitoring suspension timestamp, a retention-service helper fix, schema/retention tests, and a fresh MySQL CI workflow. CI passed with 49 tests and 155 assertions. The live Central database, production PHP runtime, and deployed Agent compatibility remain unverified.
 
-Next work must reconcile the actual executed schema and obtain explicit technical decisions for backend write and ACK durability before implementing the storage adapter.
+The Agent-facing Central intake and MySQL persistence path now has reproducible schema in CI. Prometheus/Loki write and retention integration remain unimplemented. Next work must verify non-production deployment compatibility and obtain explicit decisions for backend write protocols, label mapping, retry handling, and the Agent ACK durability boundary before implementing storage adapters.
