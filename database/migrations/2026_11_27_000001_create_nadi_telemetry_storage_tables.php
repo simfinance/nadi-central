@@ -157,6 +157,7 @@ return new class extends Migration
                 $table->string('request_id', 100)->nullable();
                 $table->string('source', 20);
                 $table->string('event_status', 30)->default('completed');
+                $table->unsignedBigInteger('sequence');
                 $table->dateTime('observed_at', 6);
                 $table->string('client_ip', 45)->nullable();
                 $table->string('http_method', 16);
