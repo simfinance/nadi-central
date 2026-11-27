@@ -1,14 +1,14 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use App\\Models\\NadiAgent;
-use App\\Models\\NadiServer;
-use App\\Services\\Nadi\\TelemetryRetentionService;
-use Illuminate\\Foundation\\Testing\\DatabaseTransactions;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Str;
-use Tests\\TestCase;
+use App\Models\NadiAgent;
+use App\Models\NadiServer;
+use App\Services\Nadi\TelemetryRetentionService;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Tests\TestCase;
 
 class TelemetryRetentionServiceTest extends TestCase
 {
@@ -28,7 +28,7 @@ class TelemetryRetentionServiceTest extends TestCase
         $this->assertSame(1, $result['deleted']['telemetry_batches']);
 
         $this->assertDatabaseMissing('nadi_telemetry_records', [
-            'id' => $fixture['record_id'],
+            'id' => $fixture['record_internal_id'],
         ]);
 
         $this->assertDatabaseMissing('nadi_telemetry_batches', [
@@ -48,7 +48,7 @@ class TelemetryRetentionServiceTest extends TestCase
         $this->assertSame(0, $result['deleted']['telemetry_batches']);
 
         $this->assertDatabaseHas('nadi_telemetry_records', [
-            'id' => $fixture['record_id'],
+            'id' => $fixture['record_internal_id'],
         ]);
 
         $this->assertDatabaseHas('nadi_telemetry_batches', [
@@ -80,6 +80,7 @@ class TelemetryRetentionServiceTest extends TestCase
         $batchId = (string) Str::uuid();
         $streamId = (string) Str::uuid();
         $recordId = (string) Str::uuid();
+        $recordInternalId = (string) Str::uuid();
 
         $expiredAt = now('UTC')
             ->subDays(45)
@@ -125,7 +126,7 @@ class TelemetryRetentionServiceTest extends TestCase
         ]);
 
         DB::table('nadi_telemetry_records')->insert([
-            'id' => (string) Str::uuid(),
+            'id' => $recordInternalId,
             'batch_id' => $batchInternalId,
             'stream_id' => $streamId,
             'agent_id' => $agent->id,
@@ -143,6 +144,7 @@ class TelemetryRetentionServiceTest extends TestCase
         return [
             'batch_internal_id' => $batchInternalId,
             'record_id' => $recordId,
+            'record_internal_id' => $recordInternalId,
         ];
     }
 
