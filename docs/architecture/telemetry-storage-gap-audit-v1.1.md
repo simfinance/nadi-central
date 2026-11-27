@@ -121,6 +121,26 @@ These are not yet a complete representation of the Master Architecture's backend
 
 The current cleanup service only deletes configured MySQL tables. There is no evidence in the inspected implementation that a policy update changes Prometheus or Loki retention.
 
+### 3.7 Alternate prune command contains a confirmed helper-call defect
+
+The source for `app/Services/Nadi/TelemetryRetentionService.php` declares the private helper as:
+
+```php
+private function deleteInChunks(
+    string $table,
+    $query
+): int
+```
+
+However, both `deleteExpiredRows()` and `deleteExpiredBatches()` call it with only the query argument:
+
+- `return $this->deleteInChunks($query);` in `deleteExpiredRows()`
+- `return $this->deleteInChunks($query);` in `deleteExpiredBatches()`
+
+The alternate command `nadi:telemetry:prune` invokes this service. When an enabled policy reaches either deletion path, PHP will raise an argument-count error because the required `$query` parameter is missing after the single argument is bound to `$table`.
+
+This is a static source finding; the command was not executed. The command is not scheduled in the inspected `routes/console.php`, and external operational use remains unverified. Do not switch the scheduled cleanup to this command or treat it as a working fallback. Any fix must be reviewed together with its table/query chunking behavior and tests, and only after confirming whether external operations depend on the command.
+
 ### 3.6 Log ingestion remains disabled by default
 
 `config/nadi.php` sets `telemetry.logs_enabled` from `NADI_TELEMETRY_LOGS_ENABLED`, defaulting to false. This is consistent with the security contract's deployment gate. Keep it disabled until Agent schema compatibility, Central tests, and non-production end-to-end verification are completed.
