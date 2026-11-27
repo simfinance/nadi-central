@@ -71,52 +71,25 @@ class GenerateActivationEd25519KeyPairCommand extends Command
             $secretKey = sodium_crypto_sign_secretkey($keyPair);
             $publicKey = sodium_crypto_sign_publickey($keyPair);
 
-            $privateWritten = file_put_contents(
+            $this->writeKeyFile(
                 $privatePath,
                 $seed,
-                LOCK_EX
+                0600
             );
 
-            if ($privateWritten !== SODIUM_CRYPTO_SIGN_SEEDBYTES)
+            try
             {
-                throw new RuntimeException(
-                    'Unable to write the Activation Grant private seed.'
+                $this->writeKeyFile(
+                    $publicPath,
+                    $publicKey,
+                    0644
                 );
             }
-
-            if (!chmod($privatePath, 0600))
+            catch (Throwable $exception)
             {
                 @unlink($privatePath);
 
-                throw new RuntimeException(
-                    'Unable to restrict Activation Grant private seed permissions.'
-                );
-            }
-
-            $publicWritten = file_put_contents(
-                $publicPath,
-                $publicKey,
-                LOCK_EX
-            );
-
-            if ($publicWritten !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES)
-            {
-                @unlink($privatePath);
-                @unlink($publicPath);
-
-                throw new RuntimeException(
-                    'Unable to write the Activation Grant public key.'
-                );
-            }
-
-            if (!chmod($publicPath, 0644))
-            {
-                @unlink($privatePath);
-                @unlink($publicPath);
-
-                throw new RuntimeException(
-                    'Unable to set Activation Grant public key permissions.'
-                );
+                throw $exception;
             }
 
             sodium_memzero($seed);
@@ -153,6 +126,58 @@ class GenerateActivationEd25519KeyPairCommand extends Command
             );
 
             return self::FAILURE;
+        }
+    }
+
+    private function writeKeyFile(
+        string $path,
+        string $contents,
+        int $permissions
+    ): void
+    {
+        $handle = fopen($path, 'xb');
+
+        if ($handle === false)
+        {
+            throw new RuntimeException(
+                'Unable to create Activation Grant key file: '
+                . $path
+            );
+        }
+
+        try
+        {
+            $written = fwrite($handle, $contents);
+
+            if (
+                $written !== strlen($contents)
+                || !fflush($handle)
+            )
+            {
+                throw new RuntimeException(
+                    'Unable to write Activation Grant key file: '
+                    . $path
+                );
+            }
+        }
+        catch (Throwable $exception)
+        {
+            fclose($handle);
+            @unlink($path);
+
+            throw $exception;
+        }
+
+        fclose($handle);
+
+        if (!chmod($path, $permissions))
+        {
+            @unlink($path);
+
+            throw new RuntimeException(
+                'Unable to set Activation Grant key file permissions: '
+                . $path
+            );
         }
     }
 
