@@ -155,10 +155,11 @@ No Prometheus or Loki retention change should be issued until the global policy 
 3. Implement Prometheus and Loki adapters behind configuration flags.
 4. Add retry, lease recovery, idempotency, quarantine, and failure-injection tests.
 5. Add capability mapping and Agent compatibility tests for approved streams.
-6. Add Central UI/API visibility for ingestion and backend delivery health.
-7. Run non-production end-to-end tests with real Prometheus and Loki services.
-8. Verify retention behavior against test datasets and prove audit/approval data is excluded.
-9. Only after these gates, prepare a production deployment plan. No production host or database action is part of this proposal.
+6. Validate database metric queries and alert rules against a non-production workload; CI currently validates query generation, rule syntax and the scrape path only.
+7. Add Central UI/API visibility for ingestion and backend delivery health.
+8. Run non-production end-to-end tests with real Prometheus and Loki services.
+9. Verify retention behavior against test datasets and prove audit/approval data is excluded.
+10. Only after these gates, prepare a production deployment plan. No production host or database action is part of this proposal.
 
 ## 6. Explicit non-actions
 
