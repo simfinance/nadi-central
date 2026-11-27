@@ -164,7 +164,10 @@ class TelemetryRetentionService
             $query->whereNotNull('gap_resolved_at');
         }
 
-        return $this->deleteInChunks($query);
+        return $this->deleteInChunks(
+            $definition['table'],
+            $query
+        );
     }
 
     private function deleteExpiredBatches(
@@ -196,7 +199,10 @@ class TelemetryRetentionService
                     );
             });
 
-        return $this->deleteInChunks($query);
+        return $this->deleteInChunks(
+            'nadi_telemetry_batches',
+            $query
+        );
     }
 
     private function deleteInChunks(
