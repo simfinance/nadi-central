@@ -6,7 +6,6 @@ use App\Services\Activation\GrantSigner;
 use App\Services\Telemetry\TelemetryAuthorizationService;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
-use ReflectionClass;
 use ReflectionMethod;
 
 class TelemetryAuthorizationServiceTest extends TestCase
@@ -24,11 +23,15 @@ class TelemetryAuthorizationServiceTest extends TestCase
 
     public function test_stream_capability_mapping_is_explicit(): void
     {
-        $reflection = new ReflectionClass(
-            TelemetryAuthorizationService::class
-        );
+        $mapping = [];
 
-        $mapping = $reflection->getConstant('STREAM_CAPABILITIES');
+        foreach (TelemetryStreamRegistry::all() as $stream => $definition)
+        {
+            if ($definition['capability'] !== null)
+            {
+                $mapping[$stream] = $definition['capability'];
+            }
+        }
 
         $this->assertSame('server_metrics', $mapping['server_metrics']);
         $this->assertSame('application_metrics', $mapping['application_metrics']);
