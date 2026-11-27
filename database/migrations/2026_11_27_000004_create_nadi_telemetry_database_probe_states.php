@@ -15,6 +15,8 @@ return new class extends Migration
 
         Schema::create('nadi_telemetry_database_probe_states', function (Blueprint $table)
         {
+            $table->engine = 'InnoDB';
+
             $table->char('id', 36)
                 ->charset('ascii')
                 ->collation('ascii_bin')
@@ -71,8 +73,7 @@ return new class extends Migration
                 ->on('nadi_telemetry_streams')
                 ->onDelete('restrict')
                 ->onUpdate('restrict');
-        })
-            ->engine = 'InnoDB';
+        });
     }
 
     public function down(): void
