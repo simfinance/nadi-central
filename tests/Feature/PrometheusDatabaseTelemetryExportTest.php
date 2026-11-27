@@ -194,6 +194,72 @@ class PrometheusDatabaseTelemetryExportTest extends TestCase
         );
     }
 
+
+    public function test_out_of_order_database_probe_does_not_lose_last_success_timestamp(): void
+    {
+        $identity = $this->createIdentity();
+
+        $grant = app(ActivationGrantService::class)->issue(
+            $identity['registration']->id
+        );
+
+        app(ActivationAcknowledgementService::class)->acknowledge(
+            $identity['agent']->id,
+            (string) Str::uuid(),
+            $identity['application']->id,
+            $grant->id,
+            'success'
+        );
+
+        $service = app(TelemetryIngestionService::class);
+        $successAt = now('UTC')->subSeconds(5)->toIso8601String();
+
+        $service->ingest(
+            $this->makeBatch(
+                $identity,
+                2,
+                [
+                    'status' => 'failed',
+                    'driver' => null,
+                    'latency_ms' => 125.5,
+                    'checked_at' => now('UTC')->toIso8601String(),
+                    'cache_hit' => false,
+                    'error_code' => 'database_connection_failed',
+                ]
+            ),
+            $identity['agent']
+        );
+
+        $service->ingest(
+            $this->makeBatch(
+                $identity,
+                1,
+                [
+                    'status' => 'ok',
+                    'driver' => 'mysql',
+                    'latency_ms' => 12.5,
+                    'checked_at' => $successAt,
+                    'cache_hit' => false,
+                    'error_code' => null,
+                ]
+            ),
+            $identity['agent']
+        );
+
+        $state = DB::table('nadi_telemetry_database_probe_states')
+            ->where('application_id', $identity['application']->id)
+            ->first();
+
+        $this->assertSame(2, (int) $state->last_sequence);
+        $this->assertSame('failed', $state->last_status);
+        $this->assertSame(1, (int) $state->failures_total);
+        $this->assertNotNull($state->last_success_at);
+        $this->assertSame(
+            now('UTC')->parse($successAt)->format('Y-m-d H:i:s'),
+            substr($state->last_success_at, 0, 19)
+        );
+    }
+
     private function makeBatch(
         array $identity,
         int $sequence,
