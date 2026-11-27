@@ -26,9 +26,11 @@ The following points are based on source inspection and the successful isolated 
 2. `TelemetryIngestionService::ingest()` writes the batch, idempotency keys, stream metadata, sequence watermarks, gaps, and telemetry records/events in one MySQL transaction.
 3. The service stores the accepted acknowledgement response in `nadi_telemetry_batches.ack_response` and returns it after the transaction completes.
 4. The controller currently responds with HTTP 200 and `data.status = accepted`.
-5. No Prometheus write adapter or Loki push adapter was found in the inspected Central source.
-6. The current generic telemetry path stores raw record data in MySQL. MySQL is not yet just a bounded outbox/staging layer.
-7. Log ingestion remains disabled by default through `NADI_TELEMETRY_LOGS_ENABLED=false`.
+5. Central already exposes an authenticated Prometheus scrape endpoint at `GET /api/internal/prometheus/metrics`. It renders Prometheus text exposition from the latest Agent telemetry records persisted in MySQL. This is a scrape/exporter path, not Prometheus Remote Write.
+6. The current exporter reads `server_metrics` and `application_metrics`; database probe records are accepted by ingestion but were not yet included in the exporter at the time this proposal was drafted. The exporter also needs live Prometheus scrape verification and production scrape configuration verification.
+7. No Loki push adapter or Loki delivery worker was found in the inspected Central source.
+8. The current generic telemetry path stores raw metrics and logs in MySQL. MySQL therefore currently acts as telemetry intake/staging and also retains raw records; Prometheus TSDB history is populated only when the scrape exporter is successfully scraped.
+9. Log ingestion remains disabled by default through `NADI_TELEMETRY_LOGS_ENABLED=false`.
 8. The stream registry recognizes these streams but has no capability mapping for them, so authorization rejects them:
    - `nginx_access_logs`
    - `application_events`
@@ -44,7 +46,7 @@ The Agent-side specification describes metrics, logs, and events operations, but
 
 **Recommendation:** Keep the existing Agent-facing HTTP 200 contract, but define `accepted` as:
 
-> Central has durably committed the batch, its idempotency state, and all required backend-delivery outbox records in one MySQL transaction.
+> Central has durably committed the batch and its idempotency state in MySQL. For push-based backends such as Loki, the same transaction must also commit the corresponding durable outbox records. Prometheus currently uses the existing Central scrape/exporter path and does not require a Remote Write outbox.
 
 It must not mean that Prometheus and Loki have already confirmed delivery.
 
@@ -52,10 +54,10 @@ This preserves the current Agent-facing success response while making the meanin
 
 ### 3.2 Durable backend outbox
 
-Add a durable per-batch/per-backend delivery record in the same database transaction as ingestion. A proposed delivery record should track:
+Add a durable per-batch/per-backend delivery record in the same database transaction as ingestion for push-based backends, initially Loki. The existing Prometheus scrape/exporter path should continue reading authorized, persisted metric snapshots; do not create a second Prometheus delivery path unless a later ADR approves it. A proposed delivery record should track:
 
 - Agent and batch identity.
-- Target backend (`prometheus` or `loki`).
+- Target push backend (`loki`; additional backends only after explicit approval).
 - Delivery state (`pending`, `processing`, `delivered`, `retry_wait`, `quarantined`).
 - Attempt count and next-attempt timestamp.
 - Lease/processing timestamp to recover abandoned workers.
@@ -63,23 +65,30 @@ Add a durable per-batch/per-backend delivery record in the same database transac
 - Delivered timestamp.
 - Sanitized last error code/message.
 
-A backend dispatcher processes pending deliveries independently. A Prometheus outage must not block Loki delivery, and vice versa.
+A backend dispatcher processes pending push deliveries independently. Prometheus availability is monitored through scrape health; a Prometheus scrape outage must not block Agent ingestion or Loki delivery.
 
 The delivery identity must be idempotent, for example one unique delivery per `(agent_id, batch_id, backend)`. A retry must not create duplicate backend samples/log entries where the backend supports idempotency or deterministic deduplication.
 
 The existing telemetry record/event rows remain bounded staging data until all required backend deliveries are complete and the configured staging/idempotency retention period has elapsed. They must not become the final long-term store for raw metrics or logs.
 
-### 3.3 Backend write protocols
+### 3.3 Backend write and scrape protocols
 
-**Prometheus recommendation:** use the Prometheus Remote Write protocol from Central, subject to explicit approval and confirmation that the target Prometheus deployment enables and secures its remote-write receiver. Convert approved numeric metric records to samples with normalized metric names, units, timestamps, and bounded labels.
+**Prometheus:** retain the existing Central scrape/exporter path as the current baseline:
 
-A scrape/exporter alternative is possible, but it must not silently replace pushed sample delivery: a scrape can miss intermediate Agent samples if the exporter only exposes the latest state.
+- Prometheus scrapes `/api/internal/prometheus/metrics` over the internal network.
+- The endpoint requires a dedicated Bearer token and returns Prometheus text exposition.
+- Central reads the latest authorized metric snapshots from MySQL and maps them to bounded Prometheus metrics.
+- The exporter must re-check the current Agent/application grant and capability before exposing samples; suspended, revoked, expired, or unauthorized scopes must stop appearing as active samples.
+- Configure and verify a scrape interval that is compatible with the Agent collection/push cadence. The Agent control polling baseline is 30 seconds; the actual production scrape interval must be confirmed and tested.
+- Prometheus TSDB provides metric history; MySQL retention remains a separate staging/idempotency policy.
 
-**Loki recommendation:** use the Loki push API from Central. Apply a strict label allowlist and place high-cardinality or request-specific values in structured metadata/log content, not labels.
+Do not add Prometheus Remote Write as a second ingestion path unless an ADR explicitly approves it and a measured data-loss/fidelity requirement cannot be met by the scrape/exporter model. The existing exporter currently selects the latest record per stream, so its scrape cadence and sequence behavior must be tested to ensure the required sample fidelity.
+
+**Loki:** use the Loki Push API from Central for approved log streams. Apply a strict label allowlist and place high-cardinality or request-specific values in structured metadata/log content, not labels.
 
 Candidate stable labels include the approved stream, environment, server identity, and application identity. Request IDs, record IDs, user IDs, arbitrary URI paths, and other per-request values must not become labels.
 
-These protocol recommendations remain unapproved until the owner confirms backend endpoint, authentication, TLS, and receiver configuration.
+The Loki protocol recommendation remains unapproved until the owner confirms backend endpoint, authentication, TLS, and receiver configuration.
 
 ### 3.4 Events and HTTP request telemetry
 
