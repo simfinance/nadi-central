@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\NadiAgent;
+use App\Services\Telemetry\TelemetryAuthorizationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class PrometheusMetricsController extends Controller
 {
-    private const CACHE_SECONDS = 5;
-
     private const STREAM_STALE_SECONDS = 120;
 
     private const STREAM_OFFLINE_SECONDS = 300;
@@ -24,6 +24,12 @@ class PrometheusMetricsController extends Controller
         'queue',
         'scheduler',
     ];
+
+    public function __construct(
+        protected TelemetryAuthorizationService $authorization
+    )
+    {
+    }
 
     public function __invoke(Request $request): Response
     {
@@ -58,11 +64,7 @@ class PrometheusMetricsController extends Controller
             );
         }
 
-        $body = Cache::remember(
-            'nadi.prometheus.metrics.v1',
-            self::CACHE_SECONDS,
-            fn (): string => $this->renderMetrics()
-        );
+        $body = $this->renderMetrics();
 
         return response(
             $body,
@@ -219,10 +221,50 @@ class PrometheusMetricsController extends Controller
             'Latest application monitoring probe latency in milliseconds.'
         );
 
+        $this->family(
+            $lines,
+            'laravel_db_connection_status',
+            'gauge',
+            'Whether the latest Laravel database connectivity probe succeeded.'
+        );
+
+        $this->family(
+            $lines,
+            'laravel_db_connection_duration_seconds',
+            'gauge',
+            'Duration of the latest Laravel database connectivity probe in seconds.'
+        );
+
+        $this->family(
+            $lines,
+            'laravel_db_last_success_timestamp',
+            'gauge',
+            'Unix timestamp of the last successful Laravel database connectivity probe.'
+        );
+
+        $this->family(
+            $lines,
+            'laravel_db_probe_failures_total',
+            'counter',
+            'Total failed Laravel database connectivity probes recorded by Central.'
+        );
+
+        $this->family(
+            $lines,
+            'laravel_db_query_success',
+            'gauge',
+            'Whether the latest Laravel database SELECT 1 probe succeeded.'
+        );
+
         $streams = $this->latestStreams();
+        $agentCache = [];
 
         foreach ($streams as $stream)
         {
+            if (!$this->isStreamAuthorized($stream, $agentCache))
+            {
+                continue;
+            }
             $labels = [
                 'agent_id' => (string) $stream->agent_id,
                 'server_id' => (string) $stream->server_id,
@@ -266,6 +308,15 @@ class PrometheusMetricsController extends Controller
                     $stream->data
                 );
             }
+
+            if ($stream->stream_name === 'database_metrics')
+            {
+                $this->appendDatabaseMetrics(
+                    $lines,
+                    $labels,
+                    $stream
+                );
+            }
         }
 
         return implode("\n", $lines) . "\n";
@@ -285,10 +336,11 @@ class PrometheusMetricsController extends Controller
                 [
                     'server_metrics',
                     'application_metrics',
+                    'database_metrics',
                 ]
             )
             ->select('telemetry_records.stream_id')
-            ->selectRaw('MAX(telemetry_records.observed_at) AS latest_observed_at')
+            ->selectRaw('MAX(telemetry_records.sequence) AS latest_sequence')
             ->groupBy('telemetry_records.stream_id');
 
         return DB::table('nadi_telemetry_streams as streams')
@@ -321,11 +373,17 @@ class PrometheusMetricsController extends Controller
                         '=',
                         'streams.id'
                     )->on(
-                        'records.observed_at',
+                        'records.sequence',
                         '=',
-                        'latest_records.latest_observed_at'
+                        'latest_records.latest_sequence'
                     );
                 }
+            )
+            ->leftJoin(
+                'nadi_telemetry_database_probe_states as database_states',
+                'database_states.stream_id',
+                '=',
+                'streams.id'
             )
             ->where('agents.installation_state', 'installed')
             ->whereIn(
@@ -333,6 +391,7 @@ class PrometheusMetricsController extends Controller
                 [
                     'server_metrics',
                     'application_metrics',
+                    'database_metrics',
                 ]
             )
             ->orderBy('servers.hostname')
@@ -346,7 +405,115 @@ class PrometheusMetricsController extends Controller
                 'applications.application_name',
                 'applications.environment',
                 'records.data',
+                'database_states.last_status as database_status',
+                'database_states.last_success_at as database_last_success_at',
+                'database_states.last_latency_ms as database_last_latency_ms',
+                'database_states.failures_total as database_failures_total',
             ]);
+    }
+
+
+    private function isStreamAuthorized(
+        object $stream,
+        array &$agentCache
+    ): bool
+    {
+        $agentId = (string) $stream->agent_id;
+
+        if (!array_key_exists($agentId, $agentCache))
+        {
+            $agentCache[$agentId] = NadiAgent::query()
+                ->find($agentId);
+        }
+
+        $agent = $agentCache[$agentId];
+
+        if (!$agent)
+        {
+            return false;
+        }
+
+        try
+        {
+            $this->authorization->authorizeAndSanitize(
+                [
+                    'records' => [
+                        [
+                            'stream' => $stream->stream_name,
+                            'application_id' => $stream->application_id,
+                            'data' => [],
+                        ],
+                    ],
+                ],
+                $agent
+            );
+
+            return true;
+        }
+        catch (HttpException $exception)
+        {
+            return false;
+        }
+    }
+
+    private function appendDatabaseMetrics(
+        array &$lines,
+        array $labels,
+        object $stream
+    ): void
+    {
+        if (!in_array($stream->database_status, ['ok', 'failed'], true))
+        {
+            return;
+        }
+
+        $success = $stream->database_status === 'ok' ? 1 : 0;
+
+        $this->sample(
+            $lines,
+            'laravel_db_connection_status',
+            $labels,
+            $success
+        );
+
+        $this->sample(
+            $lines,
+            'laravel_db_query_success',
+            $labels,
+            $success
+        );
+
+        if (is_numeric($stream->database_last_latency_ms))
+        {
+            $this->sample(
+                $lines,
+                'laravel_db_connection_duration_seconds',
+                $labels,
+                (float) $stream->database_last_latency_ms / 1000
+            );
+        }
+
+        if ($stream->database_last_success_at !== null)
+        {
+            $lastSuccessAt = CarbonImmutable::parse(
+                $stream->database_last_success_at,
+                'UTC'
+            );
+
+            $this->sample(
+                $lines,
+                'laravel_db_last_success_timestamp',
+                $labels,
+                $lastSuccessAt->getTimestamp()
+            );
+        }
+
+        $this->sample(
+            $lines,
+            'laravel_db_probe_failures_total',
+            $labels,
+            (int) ($stream->database_failures_total ?? 0)
+        );
     }
 
     private function appendStreamMetrics(
