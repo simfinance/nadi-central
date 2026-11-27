@@ -10,6 +10,7 @@ use App\Services\Activation\ActivationAcknowledgementService;
 use App\Services\Activation\ActivationGrantService;
 use App\Services\Telemetry\TelemetryIngestionService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
