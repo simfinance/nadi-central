@@ -255,7 +255,7 @@ class PrometheusDatabaseTelemetryExportTest extends TestCase
         $this->assertSame(1, (int) $state->failures_total);
         $this->assertNotNull($state->last_success_at);
         $this->assertSame(
-            now('UTC')->parse($successAt)->format('Y-m-d H:i:s'),
+            Carbon::parse($successAt)->utc()->format('Y-m-d H:i:s'),
             substr($state->last_success_at, 0, 19)
         );
     }
