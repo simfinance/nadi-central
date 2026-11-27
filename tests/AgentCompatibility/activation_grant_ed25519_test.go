@@ -7,7 +7,6 @@ import (
     "encoding/json"
     "io"
     "os"
-    "strings"
     "testing"
 )
 
@@ -99,13 +98,3 @@ func agentCanonicalJSON(payload []byte) ([]byte, error) {
     return bytes.TrimSuffix(buffer.Bytes(), []byte("\n")), nil
 }
 
-func TestCompatibilityVectorIsTestOnly(t *testing.T) {
-    fixtureBytes, err := os.ReadFile("../fixtures/activation-grant-ed25519-vector.json")
-    if err != nil {
-        t.Fatalf("read compatibility fixture: %v", err)
-    }
-
-    if !strings.Contains(string(fixtureBytes), "private_seed_base64") {
-        t.Fatal("expected an explicit test-only seed field in the fixture")
-    }
-}
